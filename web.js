@@ -81,8 +81,7 @@ javascript:(function(){
         <span style="color:#eee; font-size:0.9rem;">Auto Answer:</span>
         <input id="omegas-delay" type="number" min="0.5" step="0.5" value="2" style="width:60px; padding:3px; border-radius:3px; border:none;">
         <span style="color:#eee;">s</span>
-        <button id="omegas-start-auto" style="background:#4CAF50; color:white; border:none; padding:5px 10px; border-radius:3px; cursor:pointer;">Start</button>
-        <button id="omegas-stop-auto" style="background:#f44336; color:white; border:none; padding:5px 10px; border-radius:3px; cursor:pointer;">Stop</button>
+        <button id="omegas-toggle-auto" style="background:#4CAF50; color:white; border:none; padding:5px 10px; border-radius:3px; cursor:pointer;">Start</button>
     `;
 
     // --- Konten iframe ---
@@ -163,8 +162,8 @@ javascript:(function(){
 
     // --- State untuk auto answer ---
     let isMinimized = false;
-    let autoAnswerInterval = null;
     let isAutoAnswering = false;
+    let autoAnswerInterval = null;
 
     // Fungsi memuat script highlight jawaban (dari repositori gbaranski)
     function loadHighlightScript() {
@@ -193,25 +192,37 @@ javascript:(function(){
         if (isAutoAnswering) return;
         await loadHighlightScript().catch(e => console.error("Gagal load highlight", e));
         isAutoAnswering = true;
+        toggleBtn.style.background = '#f44336';
+        toggleBtn.textContent = 'Stop';
+
+        // Set untuk melacak soal yang sudah diproses
+        let processedQuestions = new Set();
+
         autoAnswerInterval = setInterval(() => {
-            // Deteksi soal aktif (class umum di Quizizz)
+            // Cari soal aktif
             let questionContainer = document.querySelector('.question-container, .question, [data-testid="question"]');
             if (!questionContainer) return;
-            // Cari jawaban benar yang sudah di-highlight oleh script
+
+            // Dapatkan ID unik soal (misal dari teks atau atribut)
+            let questionId = questionContainer.innerText.substring(0, 50); // sederhana
+            if (processedQuestions.has(questionId)) return; // sudah diproses
+
+            // Cari jawaban benar yang sudah di-highlight
             let correctAnswers = document.querySelectorAll('.answer--correct, .correct, [data-correct="true"]');
             if (correctAnswers.length === 0) return;
-            // Cek apakah sudah dijawab (hindari double klik)
-            let answered = document.querySelector('.is-answered, .answered, .question-answered');
-            if (answered) return;
-            // Klik semua jawaban benar setelah delay
-            correctAnswers.forEach(ans => {
-                if (!ans.classList.contains('disabled') && !ans.classList.contains('selected')) {
-                    setTimeout(() => {
+
+            // Tandai bahwa soal ini akan diproses
+            processedQuestions.add(questionId);
+
+            // Klik jawaban setelah delay
+            setTimeout(() => {
+                correctAnswers.forEach(ans => {
+                    if (!ans.classList.contains('disabled') && !ans.classList.contains('selected')) {
                         ans.click();
-                    }, delaySec * 1000);
-                }
-            });
-        }, 500); // cek setiap 500ms
+                    }
+                });
+            }, delaySec * 1000);
+        }, 500);
     }
 
     function stopAutoAnswer() {
@@ -220,14 +231,20 @@ javascript:(function(){
             autoAnswerInterval = null;
         }
         isAutoAnswering = false;
+        toggleBtn.style.background = '#4CAF50';
+        toggleBtn.textContent = 'Start';
     }
 
-    // --- Event listeners untuk tombol auto answer ---
-    document.getElementById('omegas-start-auto').addEventListener('click', () => {
-        let delay = parseFloat(document.getElementById('omegas-delay').value) || 2;
-        startAutoAnswer(delay);
+    // Tombol toggle auto answer
+    let toggleBtn = document.getElementById('omegas-toggle-auto');
+    toggleBtn.addEventListener('click', () => {
+        if (isAutoAnswering) {
+            stopAutoAnswer();
+        } else {
+            let delay = parseFloat(document.getElementById('omegas-delay').value) || 2;
+            startAutoAnswer(delay);
+        }
     });
-    document.getElementById('omegas-stop-auto').addEventListener('click', stopAutoAnswer);
 
     // --- State floating window ---
     const minWidth = 200, minHeight = 150;
@@ -265,7 +282,7 @@ javascript:(function(){
     closeBtn.addEventListener('click', () => {
         floatDiv.remove();
         restoreBtn.remove();
-        stopAutoAnswer(); // Hentikan auto answer jika berjalan
+        stopAutoAnswer();
     });
 
     // --- Drag untuk jendela utama ---
