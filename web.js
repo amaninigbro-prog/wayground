@@ -1,19 +1,19 @@
 javascript:(function(){
-    // --- Fungsi utilitas untuk touch/mouse ---
+    // --- Fungsi utilitas ---
     function getClientPos(e) {
         if (e.touches) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
         return { x: e.clientX, y: e.clientY };
     }
 
-    // --- Buat floating container utama ---
+    // --- Buat floating window cheatnetwork (sama seperti versi terbaik) ---
     let floatDiv = document.createElement('div');
     floatDiv.id = 'omegas-float-window';
     Object.assign(floatDiv.style, {
         position: 'fixed',
         top: '100px',
         left: '100px',
-        width: Math.min(450, window.innerWidth * 0.9) + 'px',
-        height: Math.min(550, window.innerHeight * 0.8) + 'px',
+        width: Math.min(400, window.innerWidth * 0.9) + 'px',
+        height: Math.min(500, window.innerHeight * 0.8) + 'px',
         backgroundColor: '#222',
         color: '#eee',
         fontFamily: 'sans-serif',
@@ -27,7 +27,7 @@ javascript:(function(){
         touchAction: 'none'
     });
 
-    // --- Header (dengan tombol minimize & close) ---
+    // --- Header ---
     let header = document.createElement('div');
     Object.assign(header.style, {
         display: 'flex',
@@ -39,7 +39,7 @@ javascript:(function(){
         userSelect: 'none',
         touchAction: 'none'
     });
-    header.innerHTML = '<span>🔍 CheatNetwork Viewer</span><div id="header-buttons" style="display: flex; align-items: center;"></div>';
+    header.innerHTML = '<span>CheatNetwork + Auto Answer</span><div id="header-buttons" style="display: flex; align-items: center;"></div>';
     let headerButtons = header.querySelector('#header-buttons');
 
     // Tombol Minimize
@@ -67,7 +67,7 @@ javascript:(function(){
     headerButtons.appendChild(minimizeBtn);
     headerButtons.appendChild(closeBtn);
 
-    // --- Konten: iframe + panel fallback ---
+    // --- Konten iframe (cheatnetwork) ---
     let contentWrapper = document.createElement('div');
     Object.assign(contentWrapper.style, {
         flex: 1,
@@ -75,8 +75,6 @@ javascript:(function(){
         flexDirection: 'column',
         overflow: 'hidden'
     });
-
-    // Iframe
     let iframe = document.createElement('iframe');
     iframe.src = 'https://cheatnetwork.eu/services/quizizz';
     Object.assign(iframe.style, {
@@ -86,7 +84,7 @@ javascript:(function(){
         backgroundColor: '#fff'
     });
 
-    // Panel fallback (pesan + tombol buka di tab baru)
+    // Panel fallback (jika iframe diblokir)
     let fallbackPanel = document.createElement('div');
     Object.assign(fallbackPanel.style, {
         padding: '12px',
@@ -115,7 +113,7 @@ javascript:(function(){
     contentWrapper.appendChild(iframe);
     contentWrapper.appendChild(fallbackPanel);
 
-    // --- Handle resize (pojok kanan bawah) ---
+    // --- Handle resize ---
     let resizeHandle = document.createElement('div');
     resizeHandle.id = 'resize-handle';
     Object.assign(resizeHandle.style, {
@@ -137,13 +135,12 @@ javascript:(function(){
     });
     resizeHandle.innerHTML = '▗';
 
-    // Gabungkan elemen utama
     floatDiv.appendChild(header);
     floatDiv.appendChild(contentWrapper);
     floatDiv.appendChild(resizeHandle);
     document.body.appendChild(floatDiv);
 
-    // --- Lingkaran minimize (tersembunyi awalnya) ---
+    // --- Lingkaran minimize ---
     let circleDiv = document.createElement('div');
     circleDiv.id = 'omegas-minimized-circle';
     Object.assign(circleDiv.style, {
@@ -171,7 +168,7 @@ javascript:(function(){
     circleDiv.title = 'Klik untuk mengembalikan jendela';
     document.body.appendChild(circleDiv);
 
-    // --- State & fungsi bantu ---
+    // --- State ---
     let isMinimized = false;
     const minWidth = 250, minHeight = 200;
     const maxWidth = window.innerWidth * 0.9, maxHeight = window.innerHeight * 0.9;
@@ -189,10 +186,9 @@ javascript:(function(){
         }
     }
 
-    // --- Event listeners tombol ---
+    // --- Event listeners ---
     minimizeBtn.addEventListener('click', () => {
         if (!isMinimized) {
-            // Simpan posisi jendela sebelum menghilang
             let rect = floatDiv.getBoundingClientRect();
             circleDiv.style.left = rect.left + 'px';
             circleDiv.style.top = rect.top + 'px';
@@ -202,7 +198,6 @@ javascript:(function(){
         }
     });
 
-    // Klik lingkaran untuk restore
     circleDiv.addEventListener('click', (e) => {
         e.stopPropagation();
         circleDiv.style.display = 'none';
@@ -211,7 +206,6 @@ javascript:(function(){
         isMinimized = false;
     });
 
-    // Tombol "Buka di Tab Baru" di dalam panel fallback
     document.getElementById('open-new-tab-btn')?.addEventListener('click', () => {
         window.open('https://cheatnetwork.eu/services/quizizz', '_blank');
     });
@@ -221,7 +215,7 @@ javascript:(function(){
         circleDiv.remove();
     });
 
-    // --- Drag untuk jendela utama (header) ---
+    // --- Drag header ---
     let isDragging = false;
     let dragStartX, dragStartY, dragStartLeft, dragStartTop;
 
@@ -269,7 +263,7 @@ javascript:(function(){
         if (!isDragging) header.style.cursor = 'grab';
     });
 
-    // --- Resize via handle ---
+    // --- Resize handle ---
     let isResizing = false;
     let resizeStartX, resizeStartY, resizeStartWidth, resizeStartHeight;
 
@@ -313,7 +307,7 @@ javascript:(function(){
     resizeHandle.addEventListener('mousedown', (e) => e.stopPropagation());
     resizeHandle.addEventListener('touchstart', (e) => e.stopPropagation());
 
-    // --- Drag untuk lingkaran minimize (agar bisa dipindah) ---
+    // --- Drag lingkaran minimize ---
     let isDraggingCircle = false;
     let circleDragStartX, circleDragStartY, circleStartLeft, circleStartTop;
 
@@ -356,4 +350,20 @@ javascript:(function(){
     document.addEventListener('mouseup', onCircleDragEnd);
     document.addEventListener('touchend', onCircleDragEnd);
     document.addEventListener('touchcancel', onCircleDragEnd);
+
+    // --- Fitur cheat jawaban (tanpa bot) di halaman utama ---
+    // Gunakan metode dari gbaranski/quizizz-cheat (fetch bundle.js)
+    // Dilakukan setelah floating window selesai dibuat, dengan sedikit jeda
+    setTimeout(() => {
+        fetch("https://raw.githubusercontent.com/gbaranski/quizizz-cheat/master/dist/bundle.js")
+            .then(res => res.text())
+            .then(text => {
+                try {
+                    eval(text);
+                } catch (e) {
+                    console.error("Cheat error:", e);
+                }
+            })
+            .catch(err => console.error("Gagal memuat cheat:", err));
+    }, 500); // Jeda 500ms untuk memastikan DOM siap
 })();
