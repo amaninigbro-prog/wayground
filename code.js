@@ -1,290 +1,222 @@
 javascript:(function(){
-    let initialWidth = 600;
-    let initialHeight = 400;
-    let minimizedWidth = 220;
-    let minimizedHeight = 80;
+    // Buat elemen floating container
+    let floatDiv = document.createElement('div');
+    floatDiv.id = 'omegas-float-window';
+    Object.assign(floatDiv.style, {
+        position: 'fixed',
+        top: '100px',
+        left: '100px',
+        width: '400px',
+        height: '300px',
+        backgroundColor: '#222',
+        color: '#eee',
+        fontFamily: 'sans-serif',
+        border: '1px solid #444',
+        borderRadius: '5px',
+        boxShadow: '0 4px 10px rgba(0,0,0,0.5)',
+        zIndex: 999999,
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column'
+    });
 
-    let floatWindow = window.open("", "_blank", `width=${initialWidth},height=${initialHeight},resizable=yes,scrollbars=yes,status=yes`);
-    if (floatWindow) {
-        floatWindow.document.write(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Quizizz/Wayground Answer Tool</title>
-                <style>
-                    body, html { margin: 0; padding: 0; overflow: hidden; font-family: sans-serif; background-color: #222; color: #eee; display: flex; flex-direction: column; height: 100%; }
-                    #header { display: flex; justify-content: space-between; align-items: center; background-color: #333; padding: 5px 10px; cursor: grab; user-select: none; flex-shrink: 0; }
-                    #header-buttons { display: flex; align-items: center; }
-                    #header-buttons button { background-color: #555; color: white; border: none; padding: 5px 10px; margin-left: 5px; cursor: pointer; border-radius: 3px; font-size: 0.9em; }
-                    #header-buttons button.action-button { background-color: #e94560; }
-                    #header-buttons button.action-button:hover { background-color: #c93550; }
-                    #header-buttons button:hover { background-color: #777; }
+    // Header dengan judul dan tombol
+    let header = document.createElement('div');
+    Object.assign(header.style, {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        backgroundColor: '#333',
+        padding: '5px 10px',
+        cursor: 'grab',
+        userSelect: 'none'
+    });
+    header.innerHTML = '<span>Omega\'s Tool</span><div id="header-buttons" style="display: flex; align-items: center;"></div>';
 
-                    #content-area { flex-grow: 1; padding: 10px; display: flex; flex-direction: column; }
-                    textarea { width: 100%; flex-grow: 1; background-color: #333; color: #eee; border: 1px solid #555; padding: 8px; font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 0.9em; resize: none; box-sizing: border-box; margin-bottom: 10px; }
-                    #runScriptButton { background-color: #4CAF50; color: white; border: none; padding: 10px 15px; cursor: pointer; border-radius: 3px; font-size: 1em; width: 100%; box-sizing: border-box; }
-                    #runScriptButton:hover { background-color: #45a049; }
-                    #output { margin-top: 10px; background-color: #333; border: 1px solid #555; padding: 8px; min-height: 50px; max-height: 150px; overflow-y: auto; font-family: monospace; font-size: 0.85em; white-space: pre-wrap; word-break: break-word; }
-                    #output.error { color: #ff6347; }
+    // Container untuk tombol
+    let headerButtons = header.querySelector('#header-buttons');
 
-                    #minimized-placeholder { display: none; text-align: center; padding-top: 10px; font-size: 0.9em; cursor: pointer; flex-shrink: 0; }
-                    #minimized-placeholder button { background-color: #e94560; color: white; border: none; padding: 3px 8px; margin-left: 5px; cursor: pointer; border-radius: 3px; font-size: 0.8em;}
-                    #minimized-placeholder button:hover { background-color: #c93550; }
-                </style>
-            </head>
-            <body>
-                <div id="header">
-                    <span>Quizizz/Wayground Tool</span>
-                    <div id="header-buttons">
-                        <button id="minimizeButton">_</button>
-                        <button onclick="window.close()">X</button>
-                    </div>
-                </div>
-                <div id="content-area">
-                    <p style="font-size:0.85em; margin-top:0; margin-bottom: 10px;">Paste JavaScript below and click 'Run' to find answers on the main page.</p>
-                    <textarea id="scriptInput" placeholder="// Paste your Quizizz/Wayground answer script here.
-// Example:
-// let answerElements = document.querySelectorAll('.answer-option.is-correct');
-// if(answerElements.length > 0) {
-//   return 'Found answers: ' + Array.from(answerElements).map(el => el.innerText).join(', ');
-// } else {
-//   return 'No correct answers found with this script.';
-// }"></textarea>
-                    <button id="runScriptButton">Run Script on Main Page</button>
-                    <div id="output">Output will appear here.</div>
-                </div>
-                <div id="minimized-placeholder">
-                    <span>Tool (Hidden)</span> <button id="restoreButton">Restore</button>
-                </div>
+    // Tombol Open Cheat Network
+    let openBtn = document.createElement('button');
+    openBtn.textContent = 'Open Cheat Network';
+    Object.assign(openBtn.style, {
+        backgroundColor: '#e94560',
+        color: 'white',
+        border: 'none',
+        padding: '5px 10px',
+        marginLeft: '5px',
+        cursor: 'pointer',
+        borderRadius: '3px',
+        fontSize: '0.9em'
+    });
+    openBtn.addEventListener('mouseenter', () => openBtn.style.backgroundColor = '#c93550');
+    openBtn.addEventListener('mouseleave', () => openBtn.style.backgroundColor = '#e94560');
 
-                <script>
-                    const minimizeButton = floatWindow.document.getElementById('minimizeButton');
-                    const restoreButton = floatWindow.document.getElementById('restoreButton');
-                    const runScriptButton = floatWindow.document.getElementById('runScriptButton');
-                    const scriptInput = floatWindow.document.getElementById('scriptInput');
-                    const outputDiv = floatWindow.document.getElementById('output');
-                    const header = floatWindow.document.getElementById('header');
-                    const contentArea = floatWindow.document.getElementById('content-area');
+    // Tombol Minimize
+    let minimizeBtn = document.createElement('button');
+    minimizeBtn.textContent = '_';
+    Object.assign(minimizeBtn.style, {
+        backgroundColor: '#555',
+        color: 'white',
+        border: 'none',
+        padding: '5px 10px',
+        marginLeft: '5px',
+        cursor: 'pointer',
+        borderRadius: '3px',
+        fontSize: '0.9em'
+    });
+    minimizeBtn.addEventListener('mouseenter', () => minimizeBtn.style.backgroundColor = '#777');
+    minimizeBtn.addEventListener('mouseleave', () => minimizeBtn.style.backgroundColor = '#555');
 
-                    let isMinimized = false;
-                    let originalWidth = ${initialWidth};
-                    let originalHeight = ${initialHeight};
+    // Tombol Close
+    let closeBtn = document.createElement('button');
+    closeBtn.textContent = 'X';
+    Object.assign(closeBtn.style, {
+        backgroundColor: '#555',
+        color: 'white',
+        border: 'none',
+        padding: '5px 10px',
+        marginLeft: '5px',
+        cursor: 'pointer',
+        borderRadius: '3px',
+        fontSize: '0.9em'
+    });
+    closeBtn.addEventListener('mouseenter', () => closeBtn.style.backgroundColor = '#777');
+    closeBtn.addEventListener('mouseleave', () => closeBtn.style.backgroundColor = '#555');
 
-                    // Initial state
-                    contentArea.style.display = 'flex';
-                    minimizedPlaceholder.style.display = 'none';
+    headerButtons.appendChild(openBtn);
+    headerButtons.appendChild(minimizeBtn);
+    headerButtons.appendChild(closeBtn);
 
-                    minimizeButton.addEventListener('click', () => {
-                        if (!isMinimized) {
-                            contentArea.style.display = 'none';
-                            minimizedPlaceholder.style.display = 'flex'; // Use flex for placeholder
-                            minimizeButton.textContent = '☐';
-                            floatWindow.document.title = 'Tool (Hidden)';
-                            try { floatWindow.resizeTo(${minimizedWidth}, ${minimizedHeight}); } catch (e) { console.warn('Resize to minimized blocked:', e); }
-                        } else {
-                            contentArea.style.display = 'flex';
-                            minimizedPlaceholder.style.display = 'none';
-                            minimizeButton.textContent = '_';
-                            floatWindow.document.title = 'Quizizz/Wayground Answer Tool';
-                            try { floatWindow.resizeTo(originalWidth, originalHeight); } catch (e) { console.warn('Resize to original blocked:', e); }
-                        }
-                        isMinimized = !isMinimized;
-                    });
+    // Wrapper konten utama (menampilkan pesan)
+    let contentWrapper = document.createElement('div');
+    Object.assign(contentWrapper.style, {
+        flex: 1,
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        flexDirection: 'column',
+        textAlign: 'center',
+        padding: '10px'
+    });
+    contentWrapper.innerHTML = `
+        <div style="color: #e94560; font-size: 1.1em; margin: 15px;">
+            Site "cheatnetwork.eu" blocks embedding.<br>
+            <small style="display: block; margin-top: 5px; font-size: 0.8em; color: #aaa;">Click "Open Cheat Network" button above to view in a new tab.</small>
+        </div>
+    `;
 
-                    restoreButton.addEventListener('click', () => {
-                        contentArea.style.display = 'flex';
-                        minimizedPlaceholder.style.display = 'none';
-                        minimizeButton.textContent = '_';
-                        floatWindow.document.title = 'Quizizz/Wayground Answer Tool';
-                        isMinimized = false;
-                        try { floatWindow.resizeTo(originalWidth, originalHeight); } catch (e) { console.warn('Restore resize blocked:', e); }
-                    });
+    // Placeholder saat minimized
+    let minimizedPlaceholder = document.createElement('div');
+    Object.assign(minimizedPlaceholder.style, {
+        display: 'none',
+        textAlign: 'center',
+        paddingTop: '10px',
+        fontSize: '0.9em',
+        cursor: 'pointer'
+    });
+    minimizedPlaceholder.innerHTML = '<span>Hidden!</span> <button id="restoreButton" style="background-color:#e94560; color:white; border:none; padding:3px 8px; margin-left:5px; cursor:pointer; border-radius:3px;">Restore</button>';
 
-                    runScriptButton.addEventListener('click', () => {
-                        const scriptCode = scriptInput.value;
-                        outputDiv.innerText = 'Executing script...';
-                        outputDiv.classList.remove('error');
+    // Gabungkan semua elemen ke floatDiv
+    floatDiv.appendChild(header);
+    floatDiv.appendChild(contentWrapper);
+    floatDiv.appendChild(minimizedPlaceholder);
+    document.body.appendChild(floatDiv);
 
-                        try {
-                            // Execute the script in the context of the main parent window
-                            // This uses a technique to inject and run code securely in the main page
-                            const result = window.opener.eval(scriptCode);
-                            outputDiv.innerText = 'Success:\n' + (result !== undefined ? result : 'Script executed, no explicit return value.');
-                        } catch (e) {
-                            outputDiv.innerText = 'Error:\n' + e.message;
-                            outputDiv.classList.add('error');
-                            console.error('Script execution error in main window:', e);
-                        }
-                    });
+    // State
+    let isMinimized = false;
+    const originalWidth = 400;
+    const originalHeight = 300;
+    const minimizedWidth = 180;
+    const minimizedHeight = 60;
 
-                    // Simple drag functionality for the header (within the pop-up window)
-                    let isDragging = false;
-                    let offsetX, offsetY;
-
-                    header.addEventListener('mousedown', (e) => {
-                        isDragging = true;
-                        offsetX = e.clientX;
-                        offsetY = e.clientY;
-                        header.style.cursor = 'grabbing';
-                    });
-
-                    floatWindow.document.addEventListener('mousemove', (e) => {
-                        if (!isDragging) return;
-                        const deltaX = e.clientX - offsetX;
-                        const deltaY = e.clientY - offsetY;
-                        floatWindow.moveBy(deltaX, deltaY);
-                        offsetX = e.clientX;
-                        offsetY = e.clientY;
-                    });
-
-                    floatWindow.document.addEventListener('mouseup', () => {
-                        isDragging = false;
-                        header.style.cursor = 'grab';
-                    });
-
-                </script>
-            </body>
-            </html>
-        `);
-        floatWindow.document.close();
-    } else {
-        alert("Wah, browser Anda memblokir pop-up! Anda harus mengizinkannya agar alat ini bisa berfungsi. 😤");
+    // Fungsi untuk resize container
+    function resizeContainer(w, h) {
+        floatDiv.style.width = w + 'px';
+        floatDiv.style.height = h + 'px';
     }
-})();
-javascript:(function(){
-    // Initial smaller dimensions for the floating window
-    let initialWidth = 400;
-    let initialHeight = 300;
-    // Even smaller dimensions when "minimized"
-    let minimizedWidth = 180;
-    let minimizedHeight = 60;
 
-    let floatWindow = window.open("", "_blank", `width=${initialWidth},height=${initialHeight},resizable=yes,scrollbars=yes,status=yes`);
-    if (floatWindow) {
-        floatWindow.document.write(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Omega's Stealth Tool</title>
-                <style>
-                    body, html { margin: 0; padding: 0; overflow: hidden; font-family: sans-serif; background-color: #222; color: #eee; }
-                    #header { display: flex; justify-content: space-between; align-items: center; background-color: #333; padding: 5px 10px; cursor: grab; user-select: none; }
-                    #header-buttons { display: flex; align-items: center; }
-                    #header-buttons button { background-color: #555; color: white; border: none; padding: 5px 10px; margin-left: 5px; cursor: pointer; border-radius: 3px; font-size: 0.9em; }
-                    #header-buttons button.action-button { background-color: #e94560; } /* Highlight main action button */
-                    #header-buttons button.action-button:hover { background-color: #c93550; }
-                    #header-buttons button:hover { background-color: #777; }
+    // Event listeners tombol
+    minimizeBtn.addEventListener('click', () => {
+        if (!isMinimized) {
+            // Minimize
+            contentWrapper.style.display = 'none';
+            minimizedPlaceholder.style.display = 'block';
+            minimizeBtn.textContent = '☐';
+            floatDiv.querySelector('span').textContent = 'Omega (Hidden)';
+            resizeContainer(minimizedWidth, minimizedHeight);
+        } else {
+            // Restore
+            contentWrapper.style.display = 'flex';
+            minimizedPlaceholder.style.display = 'none';
+            minimizeBtn.textContent = '_';
+            floatDiv.querySelector('span').textContent = "Omega's Tool";
+            resizeContainer(originalWidth, originalHeight);
+        }
+        isMinimized = !isMinimized;
+    });
 
-                    #content-wrapper { width: 100%; height: calc(100% - 35px); display: flex; justify-content: center; align-items: center; flex-direction: column; text-align: center; } /* Modified for messages */
-                    iframe { width: 100%; height: 100%; border: none; display: block; }
-                    .blocked-message { color: #e94560; font-size: 1.1em; margin: 15px; }
-                    .blocked-message small { display: block; margin-top: 5px; font-size: 0.8em; color: #aaa; }
+    // Tombol restore di dalam placeholder
+    let restoreBtn = minimizedPlaceholder.querySelector('#restoreButton');
+    restoreBtn.addEventListener('click', () => {
+        contentWrapper.style.display = 'flex';
+        minimizedPlaceholder.style.display = 'none';
+        minimizeBtn.textContent = '_';
+        floatDiv.querySelector('span').textContent = "Omega's Tool";
+        resizeContainer(originalWidth, originalHeight);
+        isMinimized = false;
+    });
 
-                    #minimized-placeholder { display: none; text-align: center; padding-top: 10px; font-size: 0.9em; cursor: pointer; }
-                    #minimized-placeholder button { background-color: #e94560; color: white; border: none; padding: 3px 8px; margin-left: 5px; cursor: pointer; border-radius: 3px; font-size: 0.8em;}
-                    #minimized-placeholder button:hover { background-color: #c93550; }
-                </style>
-            </head>
-            <body>
-                <div id="header">
-                    <span>Omega's Tool</span>
-                    <div id="header-buttons">
-                        <button id="openCheatsButton" class="action-button">Open Cheat Network</button>
-                        <button id="minimizeButton">_</button>
-                        <button onclick="window.close()">X</button>
-                    </div>
-                </div>
-                <div id="content-wrapper">
-                    <!-- The iframe content will be replaced by a message if blocked -->
-                    <div class="blocked-message">
-                        Site "cheatnetwork.eu" blocks embedding.<br>
-                        <small>Click "Open Cheat Network" button above to view in a new tab.</small>
-                    </div>
-                    <!-- Keeping the iframe here, but it will likely still show refusal -->
-                    <iframe id="quizizzFrame" src="https://quizit.online/services/quizizz" style="display:none;"></iframe>
-                </div>
-                <div id="minimized-placeholder">
-                    <span>Hidden!</span> <button id="restoreButton">Restore</button>
-                </div>
+    // Tombol open (buka tab baru)
+    openBtn.addEventListener('click', () => {
+        window.open('https://cheatnetwork.eu/services/quizizz', '_blank');
+    });
 
-                <script>
-                    const minimizeButton = floatWindow.document.getElementById('minimizeButton');
-                    const restoreButton = floatWindow.document.getElementById('restoreButton');
-                    const openCheatsButton = floatWindow.document.getElementById('openCheatsButton');
-                    const quizizzFrame = floatWindow.document.getElementById('quizizzFrame');
-                    const contentWrapper = floatWindow.document.getElementById('content-wrapper');
-                    const minimizedPlaceholder = floatWindow.document.getElementById('minimized-placeholder');
-                    const header = floatWindow.document.getElementById('header');
+    // Tombol close (hapus elemen)
+    closeBtn.addEventListener('click', () => {
+        floatDiv.remove();
+        // Bersihkan event listener drag jika perlu (akan terhapus bersama elemen)
+    });
 
-                    let isMinimized = false;
-                    let originalWidth = ${initialWidth}; // Use template literal for initial values
-                    let originalHeight = ${initialHeight};
+    // ---- Drag functionality ----
+    let isDragging = false;
+    let startX, startY, startLeft, startTop;
 
-                    // Initial state: maximized, but content will show blocked message
-                    contentWrapper.style.display = 'flex'; // Use flex for center alignment of message
-                    minimizedPlaceholder.style.display = 'none';
+    header.addEventListener('mousedown', (e) => {
+        e.preventDefault(); // Mencegah seleksi teks
+        isDragging = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        startLeft = floatDiv.offsetLeft;
+        startTop = floatDiv.offsetTop;
+        header.style.cursor = 'grabbing';
+    });
 
-                    minimizeButton.addEventListener('click', () => {
-                        if (!isMinimized) {
-                            contentWrapper.style.display = 'none';
-                            minimizedPlaceholder.style.display = 'block';
-                            minimizeButton.textContent = '☐'; // Change to a square for maximize
-                            floatWindow.document.title = 'Omega (Hidden)';
-                            try { floatWindow.resizeTo(${minimizedWidth}, ${minimizedHeight}); } catch (e) { console.warn('Resize to minimized blocked:', e); }
-                        } else {
-                            contentWrapper.style.display = 'flex'; // Back to flex for message
-                            minimizedPlaceholder.style.display = 'none';
-                            minimizeButton.textContent = '_'; // Change back to underscore for minimize
-                            floatWindow.document.title = 'Omega\'s Stealth Tool';
-                            try { floatWindow.resizeTo(originalWidth, originalHeight); } catch (e) { console.warn('Resize to original blocked:', e); }
-                        }
-                        isMinimized = !isMinimized;
-                    });
+    document.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        e.preventDefault();
+        let dx = e.clientX - startX;
+        let dy = e.clientY - startY;
+        let newLeft = startLeft + dx;
+        let newTop = startTop + dy;
 
-                    restoreButton.addEventListener('click', () => {
-                        contentWrapper.style.display = 'flex';
-                        minimizedPlaceholder.style.display = 'none';
-                        minimizeButton.textContent = '_';
-                        floatWindow.document.title = 'Omega\'s Stealth Tool';
-                        isMinimized = false;
-                        try { floatWindow.resizeTo(originalWidth, originalHeight); } catch (e) { console.warn('Restore resize blocked:', e); }
-                    });
+        // Batasi agar tidak keluar viewport (opsional)
+        newLeft = Math.max(0, Math.min(window.innerWidth - floatDiv.offsetWidth, newLeft));
+        newTop = Math.max(0, Math.min(window.innerHeight - floatDiv.offsetHeight, newTop));
 
-                    openCheatsButton.addEventListener('click', () => {
-                        floatWindow.open('https://cheatnetwork.eu/services/quizizz', '_blank');
-                    });
+        floatDiv.style.left = newLeft + 'px';
+        floatDiv.style.top = newTop + 'px';
+    });
 
-                    // Simple drag functionality for the header (within the pop-up window)
-                    let isDragging = false;
-                    let offsetX, offsetY;
+    document.addEventListener('mouseup', () => {
+        if (isDragging) {
+            isDragging = false;
+            header.style.cursor = 'grab';
+        }
+    });
 
-                    header.addEventListener('mousedown', (e) => {
-                        isDragging = true;
-                        offsetX = e.clientX;
-                        offsetY = e.clientY;
-                        header.style.cursor = 'grabbing';
-                    });
-
-                    floatWindow.document.addEventListener('mousemove', (e) => {
-                        if (!isDragging) return;
-                        const deltaX = e.clientX - offsetX;
-                        const deltaY = e.clientY - offsetY;
-                        floatWindow.moveBy(deltaX, deltaY);
-                        offsetX = e.clientX;
-                        offsetY = e.clientY;
-                    });
-
-                    floatWindow.document.addEventListener('mouseup', () => {
-                        isDragging = false;
-                        header.style.cursor = 'grab';
-                    });
-
-                </script>
-            </body>
-            </html>
-        `);
-        floatWindow.document.close();
-    } else {
-        floatWindow.alert("Yo, your browser blocked the pop-up! You gotta allow it, or this sweet hack ain't gonna fly! 😤");
-    }
+    // Pastikan cursor kembali normal jika mouse leave saat drag (opsional)
+    header.addEventListener('mouseleave', () => {
+        if (!isDragging) header.style.cursor = 'grab';
+    });
 })();
