@@ -12,8 +12,8 @@ javascript:(function(){
         position: 'fixed',
         top: '100px',
         left: '100px',
-        width: Math.min(400, window.innerWidth * 0.9) + 'px',
-        height: Math.min(500, window.innerHeight * 0.8) + 'px',
+        width: Math.min(450, window.innerWidth * 0.9) + 'px',
+        height: Math.min(550, window.innerHeight * 0.8) + 'px',
         backgroundColor: '#222',
         color: '#eee',
         fontFamily: 'sans-serif',
@@ -27,7 +27,7 @@ javascript:(function(){
         touchAction: 'none'
     });
 
-    // --- Header (tanpa tombol "Open in new tab") ---
+    // --- Header (dengan tombol minimize & close) ---
     let header = document.createElement('div');
     Object.assign(header.style, {
         display: 'flex',
@@ -39,7 +39,7 @@ javascript:(function(){
         userSelect: 'none',
         touchAction: 'none'
     });
-    header.innerHTML = '<span>CheatNetwork Viewer</span><div id="header-buttons" style="display: flex; align-items: center;"></div>';
+    header.innerHTML = '<span>🔍 CheatNetwork Viewer</span><div id="header-buttons" style="display: flex; align-items: center;"></div>';
     let headerButtons = header.querySelector('#header-buttons');
 
     // Tombol Minimize
@@ -67,7 +67,7 @@ javascript:(function(){
     headerButtons.appendChild(minimizeBtn);
     headerButtons.appendChild(closeBtn);
 
-    // --- Konten iframe ---
+    // --- Konten: iframe + panel fallback ---
     let contentWrapper = document.createElement('div');
     Object.assign(contentWrapper.style, {
         flex: 1,
@@ -75,15 +75,45 @@ javascript:(function(){
         flexDirection: 'column',
         overflow: 'hidden'
     });
+
+    // Iframe
     let iframe = document.createElement('iframe');
     iframe.src = 'https://cheatnetwork.eu/services/quizizz';
     Object.assign(iframe.style, {
         width: '100%',
-        height: '100%',
+        flex: '1 1 auto',
         border: 'none',
         backgroundColor: '#fff'
     });
+
+    // Panel fallback (pesan + tombol buka di tab baru)
+    let fallbackPanel = document.createElement('div');
+    Object.assign(fallbackPanel.style, {
+        padding: '12px',
+        backgroundColor: '#2a2a2a',
+        borderTop: '1px solid #444',
+        textAlign: 'center'
+    });
+    fallbackPanel.innerHTML = `
+        <div style="color: #ffaa00; margin-bottom: 8px; font-size: 0.9rem;">
+            ⚠️ Jika konten tidak tampil (diblokir situs), buka di tab baru:
+        </div>
+        <button id="open-new-tab-btn" style="
+            background-color: #e94560;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            touch-action: manipulation;
+        ">🚀 Buka di Tab Baru</button>
+    `;
+
     contentWrapper.appendChild(iframe);
+    contentWrapper.appendChild(fallbackPanel);
 
     // --- Handle resize (pojok kanan bawah) ---
     let resizeHandle = document.createElement('div');
@@ -113,38 +143,37 @@ javascript:(function(){
     floatDiv.appendChild(resizeHandle);
     document.body.appendChild(floatDiv);
 
-    // --- Tombol restore (lingkaran kecil semi-transparan) ---
-    let restoreBtn = document.createElement('div');
-    restoreBtn.id = 'omegas-restore-button';
-    Object.assign(restoreBtn.style, {
+    // --- Lingkaran minimize (tersembunyi awalnya) ---
+    let circleDiv = document.createElement('div');
+    circleDiv.id = 'omegas-minimized-circle';
+    Object.assign(circleDiv.style, {
         position: 'fixed',
         bottom: '20px',
         right: '20px',
-        width: '40px',
-        height: '40px',
-        backgroundColor: 'rgba(233, 69, 96, 0.25)',
+        width: '50px',
+        height: '50px',
+        backgroundColor: '#e94560',
         borderRadius: '50%',
+        boxShadow: '0 2px 10px rgba(0,0,0,0.3)',
         display: 'none',
         justifyContent: 'center',
         alignItems: 'center',
-        color: 'rgba(255,255,255,0.6)',
-        fontSize: '20px',
+        color: 'white',
+        fontSize: '24px',
+        fontWeight: 'bold',
+        fontFamily: 'sans-serif',
         cursor: 'pointer',
         zIndex: 1000000,
         userSelect: 'none',
-        border: '1px solid rgba(255,255,255,0.2)',
-        backdropFilter: 'blur(2px)',
-        transition: 'background-color 0.2s'
+        touchAction: 'none'
     });
-    restoreBtn.textContent = 'C';
-    restoreBtn.title = 'Klik untuk mengembalikan jendela';
-    restoreBtn.addEventListener('mouseenter', () => restoreBtn.style.backgroundColor = 'rgba(233, 69, 96, 0.5)');
-    restoreBtn.addEventListener('mouseleave', () => restoreBtn.style.backgroundColor = 'rgba(233, 69, 96, 0.25)');
-    document.body.appendChild(restoreBtn);
+    circleDiv.textContent = 'C';
+    circleDiv.title = 'Klik untuk mengembalikan jendela';
+    document.body.appendChild(circleDiv);
 
-    // --- State ---
+    // --- State & fungsi bantu ---
     let isMinimized = false;
-    const minWidth = 200, minHeight = 150;
+    const minWidth = 250, minHeight = 200;
     const maxWidth = window.innerWidth * 0.9, maxHeight = window.innerHeight * 0.9;
     let originalWidth = parseFloat(floatDiv.style.width);
     let originalHeight = parseFloat(floatDiv.style.height);
@@ -160,28 +189,39 @@ javascript:(function(){
         }
     }
 
-    // --- Event listeners ---
+    // --- Event listeners tombol ---
     minimizeBtn.addEventListener('click', () => {
         if (!isMinimized) {
+            // Simpan posisi jendela sebelum menghilang
+            let rect = floatDiv.getBoundingClientRect();
+            circleDiv.style.left = rect.left + 'px';
+            circleDiv.style.top = rect.top + 'px';
             floatDiv.style.display = 'none';
-            restoreBtn.style.display = 'flex';
+            circleDiv.style.display = 'flex';
             isMinimized = true;
         }
     });
 
-    restoreBtn.addEventListener('click', () => {
-        restoreBtn.style.display = 'none';
+    // Klik lingkaran untuk restore
+    circleDiv.addEventListener('click', (e) => {
+        e.stopPropagation();
+        circleDiv.style.display = 'none';
         floatDiv.style.display = 'flex';
         resizeContainer(originalWidth, originalHeight);
         isMinimized = false;
     });
 
-    closeBtn.addEventListener('click', () => {
-        floatDiv.remove();
-        restoreBtn.remove();
+    // Tombol "Buka di Tab Baru" di dalam panel fallback
+    document.getElementById('open-new-tab-btn')?.addEventListener('click', () => {
+        window.open('https://cheatnetwork.eu/services/quizizz', '_blank');
     });
 
-    // --- Drag untuk jendela utama ---
+    closeBtn.addEventListener('click', () => {
+        floatDiv.remove();
+        circleDiv.remove();
+    });
+
+    // --- Drag untuk jendela utama (header) ---
     let isDragging = false;
     let dragStartX, dragStartY, dragStartLeft, dragStartTop;
 
@@ -272,4 +312,48 @@ javascript:(function(){
 
     resizeHandle.addEventListener('mousedown', (e) => e.stopPropagation());
     resizeHandle.addEventListener('touchstart', (e) => e.stopPropagation());
+
+    // --- Drag untuk lingkaran minimize (agar bisa dipindah) ---
+    let isDraggingCircle = false;
+    let circleDragStartX, circleDragStartY, circleStartLeft, circleStartTop;
+
+    function onCircleDragStart(e) {
+        e.preventDefault();
+        let pos = getClientPos(e);
+        isDraggingCircle = true;
+        circleDragStartX = pos.x;
+        circleDragStartY = pos.y;
+        circleStartLeft = circleDiv.offsetLeft;
+        circleStartTop = circleDiv.offsetTop;
+        circleDiv.style.cursor = 'grabbing';
+    }
+
+    function onCircleDragMove(e) {
+        if (!isDraggingCircle) return;
+        e.preventDefault();
+        let pos = getClientPos(e);
+        let dx = pos.x - circleDragStartX;
+        let dy = pos.y - circleDragStartY;
+        let newLeft = circleStartLeft + dx;
+        let newTop = circleStartTop + dy;
+        newLeft = Math.max(0, Math.min(window.innerWidth - 50, newLeft));
+        newTop = Math.max(0, Math.min(window.innerHeight - 50, newTop));
+        circleDiv.style.left = newLeft + 'px';
+        circleDiv.style.top = newTop + 'px';
+    }
+
+    function onCircleDragEnd(e) {
+        if (isDraggingCircle) {
+            isDraggingCircle = false;
+            circleDiv.style.cursor = 'pointer';
+        }
+    }
+
+    circleDiv.addEventListener('mousedown', onCircleDragStart);
+    circleDiv.addEventListener('touchstart', onCircleDragStart, { passive: false });
+    document.addEventListener('mousemove', onCircleDragMove);
+    document.addEventListener('touchmove', onCircleDragMove, { passive: false });
+    document.addEventListener('mouseup', onCircleDragEnd);
+    document.addEventListener('touchend', onCircleDragEnd);
+    document.addEventListener('touchcancel', onCircleDragEnd);
 })();
