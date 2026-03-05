@@ -1,9 +1,7 @@
 javascript:(function(){
     // --- Fungsi utilitas untuk touch/mouse ---
     function getClientPos(e) {
-        if (e.touches) {
-            return { x: e.touches[0].clientX, y: e.touches[0].clientY };
-        }
+        if (e.touches) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
         return { x: e.clientX, y: e.clientY };
     }
 
@@ -29,7 +27,7 @@ javascript:(function(){
         touchAction: 'none'
     });
 
-    // --- Header ---
+    // --- Header (tanpa tombol "Open in new tab") ---
     let header = document.createElement('div');
     Object.assign(header.style, {
         display: 'flex',
@@ -43,17 +41,6 @@ javascript:(function(){
     });
     header.innerHTML = '<span>Quizit Viewer</span><div id="header-buttons" style="display: flex; align-items: center;"></div>';
     let headerButtons = header.querySelector('#header-buttons');
-
-    // Tombol Open in new tab
-    let openBtn = document.createElement('button');
-    openBtn.textContent = 'Open in new tab';
-    Object.assign(openBtn.style, {
-        backgroundColor: '#e94560', color: 'white', border: 'none', padding: '5px 10px',
-        marginLeft: '5px', cursor: 'pointer', borderRadius: '3px', fontSize: '0.9em',
-        touchAction: 'manipulation'
-    });
-    openBtn.addEventListener('mouseenter', () => openBtn.style.backgroundColor = '#c93550');
-    openBtn.addEventListener('mouseleave', () => openBtn.style.backgroundColor = '#e94560');
 
     // Tombol Minimize
     let minimizeBtn = document.createElement('button');
@@ -77,7 +64,6 @@ javascript:(function(){
     closeBtn.addEventListener('mouseenter', () => closeBtn.style.backgroundColor = '#777');
     closeBtn.addEventListener('mouseleave', () => closeBtn.style.backgroundColor = '#555');
 
-    headerButtons.appendChild(openBtn);
     headerButtons.appendChild(minimizeBtn);
     headerButtons.appendChild(closeBtn);
 
@@ -127,30 +113,34 @@ javascript:(function(){
     floatDiv.appendChild(resizeHandle);
     document.body.appendChild(floatDiv);
 
-    // --- Buat lingkaran minimize (tersembunyi awalnya) ---
-    let circleDiv = document.createElement('div');
-    circleDiv.id = 'omegas-minimized-circle';
-    Object.assign(circleDiv.style, {
+    // --- Tombol restore (lingkaran kecil semi-transparan) ---
+    let restoreBtn = document.createElement('div');
+    restoreBtn.id = 'omegas-restore-button';
+    Object.assign(restoreBtn.style, {
         position: 'fixed',
-        width: '50px',
-        height: '50px',
-        backgroundColor: '#e94560',
+        bottom: '20px',
+        right: '20px',
+        width: '40px',
+        height: '40px',
+        backgroundColor: 'rgba(233, 69, 96, 0.25)',
         borderRadius: '50%',
-        boxShadow: '0 2px 10px rgba(0,0,0,0.3)',
         display: 'none',
         justifyContent: 'center',
         alignItems: 'center',
-        color: 'white',
-        fontSize: '24px',
-        fontWeight: 'bold',
-        fontFamily: 'sans-serif',
+        color: 'rgba(255,255,255,0.6)',
+        fontSize: '20px',
         cursor: 'pointer',
         zIndex: 1000000,
         userSelect: 'none',
-        touchAction: 'none'
+        border: '1px solid rgba(255,255,255,0.2)',
+        backdropFilter: 'blur(2px)',
+        transition: 'background-color 0.2s'
     });
-    circleDiv.textContent = 'Z';
-    document.body.appendChild(circleDiv);
+    restoreBtn.textContent = 'Q';
+    restoreBtn.title = 'Klik untuk mengembalikan jendela';
+    restoreBtn.addEventListener('mouseenter', () => restoreBtn.style.backgroundColor = 'rgba(233, 69, 96, 0.5)');
+    restoreBtn.addEventListener('mouseleave', () => restoreBtn.style.backgroundColor = 'rgba(233, 69, 96, 0.25)');
+    document.body.appendChild(restoreBtn);
 
     // --- State ---
     let isMinimized = false;
@@ -170,41 +160,27 @@ javascript:(function(){
         }
     }
 
-    // --- Event listeners tombol ---
+    // --- Event listeners ---
     minimizeBtn.addEventListener('click', () => {
         if (!isMinimized) {
-            // Minimize: sembunyikan jendela utama, tampilkan lingkaran di posisi yang sama
-            let rect = floatDiv.getBoundingClientRect();
-            circleDiv.style.left = rect.left + 'px';
-            circleDiv.style.top = rect.top + 'px';
             floatDiv.style.display = 'none';
-            circleDiv.style.display = 'flex';
+            restoreBtn.style.display = 'flex';
             isMinimized = true;
         } else {
-            // Restore via tombol (jika lingkaran diklik, ini tidak akan terpakai, tapi kita handle juga)
-            circleDiv.style.display = 'none';
-            floatDiv.style.display = 'flex';
-            resizeContainer(originalWidth, originalHeight);
-            isMinimized = false;
+            // (Tidak akan terjadi karena tombol minimize hanya aktif saat jendela terbuka)
         }
     });
 
-    // Klik lingkaran untuk restore
-    circleDiv.addEventListener('click', (e) => {
-        e.stopPropagation();
-        circleDiv.style.display = 'none';
+    restoreBtn.addEventListener('click', () => {
+        restoreBtn.style.display = 'none';
         floatDiv.style.display = 'flex';
         resizeContainer(originalWidth, originalHeight);
         isMinimized = false;
     });
 
-    openBtn.addEventListener('click', () => {
-        window.open('https://quizit.online/services/quizizz', '_blank');
-    });
-
     closeBtn.addEventListener('click', () => {
         floatDiv.remove();
-        circleDiv.remove();
+        restoreBtn.remove();
     });
 
     // --- Drag untuk jendela utama ---
@@ -230,6 +206,7 @@ javascript:(function(){
         let dy = pos.y - dragStartY;
         let newLeft = dragStartLeft + dx;
         let newTop = dragStartTop + dy;
+        // Batasi agar tidak keluar viewport (opsional, bisa dihapus jika ingin lebih bebas)
         newLeft = Math.max(0, Math.min(window.innerWidth - floatDiv.offsetWidth, newLeft));
         newTop = Math.max(0, Math.min(window.innerHeight - floatDiv.offsetHeight, newTop));
         floatDiv.style.left = newLeft + 'px';
@@ -298,48 +275,4 @@ javascript:(function(){
 
     resizeHandle.addEventListener('mousedown', (e) => e.stopPropagation());
     resizeHandle.addEventListener('touchstart', (e) => e.stopPropagation());
-
-    // --- Drag untuk lingkaran minimize (agar bisa dipindah) ---
-    let isDraggingCircle = false;
-    let circleDragStartX, circleDragStartY, circleStartLeft, circleStartTop;
-
-    function onCircleDragStart(e) {
-        e.preventDefault();
-        let pos = getClientPos(e);
-        isDraggingCircle = true;
-        circleDragStartX = pos.x;
-        circleDragStartY = pos.y;
-        circleStartLeft = circleDiv.offsetLeft;
-        circleStartTop = circleDiv.offsetTop;
-        circleDiv.style.cursor = 'grabbing';
-    }
-
-    function onCircleDragMove(e) {
-        if (!isDraggingCircle) return;
-        e.preventDefault();
-        let pos = getClientPos(e);
-        let dx = pos.x - circleDragStartX;
-        let dy = pos.y - circleDragStartY;
-        let newLeft = circleStartLeft + dx;
-        let newTop = circleStartTop + dy;
-        newLeft = Math.max(0, Math.min(window.innerWidth - 50, newLeft));
-        newTop = Math.max(0, Math.min(window.innerHeight - 50, newTop));
-        circleDiv.style.left = newLeft + 'px';
-        circleDiv.style.top = newTop + 'px';
-    }
-
-    function onCircleDragEnd(e) {
-        if (isDraggingCircle) {
-            isDraggingCircle = false;
-            circleDiv.style.cursor = 'pointer';
-        }
-    }
-
-    circleDiv.addEventListener('mousedown', onCircleDragStart);
-    circleDiv.addEventListener('touchstart', onCircleDragStart, { passive: false });
-    document.addEventListener('mousemove', onCircleDragMove);
-    document.addEventListener('touchmove', onCircleDragMove, { passive: false });
-    document.addEventListener('mouseup', onCircleDragEnd);
-    document.addEventListener('touchend', onCircleDragEnd);
-    document.addEventListener('touchcancel', onCircleDragEnd);
 })();
