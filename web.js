@@ -79,7 +79,7 @@ javascript:(function(){
     headerButtons.appendChild(minimizeBtn);
     headerButtons.appendChild(closeBtn);
 
-    // --- Panel Auto Answer (awalnya tersembunyi) ---
+    // --- Panel Auto Answer (tanpa input selector) ---
     let autoPanel = document.createElement('div');
     Object.assign(autoPanel.style, {
         display: 'none',
@@ -92,10 +92,8 @@ javascript:(function(){
     autoPanel.innerHTML = `
         <div style="display: flex; flex-direction: column; gap: 5px;">
             <label>Delay (detik): <input type="number" id="auto-delay" min="0.5" step="0.5" value="2" style="width: 60px; background:#444; color:white; border:1px solid #555; padding:2px;"></label>
-            <label>Selector jawaban: <input type="text" id="auto-selector" value=".option, .answer, [data-cy='option'], .choice, .quiz-option, button.option" style="width:100%; background:#444; color:white; border:1px solid #555; padding:2px;"></label>
-            <label>Selector soal: <input type="text" id="question-selector" value=".question-text, [data-cy='question-text'], .question, .quiz-question" style="width:100%; background:#444; color:white; border:1px solid #555; padding:2px;"></label>
             <div style="display: flex; gap: 5px;">
-                <button id="auto-start" style="background:#4CAF50; color:white; border:none; padding:5px; border-radius:3px; cursor:pointer;">Start</button>
+                <button id="auto-start" style="background:#4CAF50; color:white; border:none; padding:5px; border-radius:3px; cursor:pointer;">Start Auto Jawab</button>
                 <button id="auto-stop" style="background:#f44336; color:white; border:none; padding:5px; border-radius:3px; cursor:pointer;">Stop</button>
                 <button id="auto-copy" style="background:#2196F3; color:white; border:none; padding:5px; border-radius:3px; cursor:pointer;">Copy Soal</button>
             </div>
@@ -171,7 +169,7 @@ javascript:(function(){
         userSelect: 'none',
         border: '1px solid rgba(255,255,255,0.2)',
         backdropFilter: 'blur(2px)',
-        transition: 'backgroundColor 0.2s'
+        transition: 'background-color 0.2s'
     });
     restoreBtn.textContent = 'Q';
     restoreBtn.title = 'Klik untuk mengembalikan jendela';
@@ -179,7 +177,7 @@ javascript:(function(){
     restoreBtn.addEventListener('mouseleave', () => restoreBtn.style.backgroundColor = 'rgba(233, 69, 96, 0.25)');
     document.body.appendChild(restoreBtn);
 
-    // --- State untuk drag, resize, auto answer ---
+    // --- State ---
     let isMinimized = false;
     const minWidth = 200, minHeight = 150;
     const maxWidth = window.innerWidth * 0.9, maxHeight = window.innerHeight * 0.9;
@@ -187,24 +185,84 @@ javascript:(function(){
     let originalHeight = parseFloat(floatDiv.style.height);
 
     let autoInterval = null;
-    let autoDelay = 2000; // default 2 detik
+    let autoDelay = 2000;
     let statusDiv = autoPanel.querySelector('#auto-status');
     let delayInput = autoPanel.querySelector('#auto-delay');
-    let selectorInput = autoPanel.querySelector('#auto-selector');
-    let questionSelectorInput = autoPanel.querySelector('#question-selector');
     let startBtn = autoPanel.querySelector('#auto-start');
     let stopBtn = autoPanel.querySelector('#auto-stop');
     let copyBtn = autoPanel.querySelector('#auto-copy');
 
-    // Fungsi untuk mengubah ukuran
-    function resizeContainer(w, h) {
-        w = Math.min(maxWidth, Math.max(minWidth, w));
-        h = Math.min(maxHeight, Math.max(minHeight, h));
-        floatDiv.style.width = w + 'px';
-        floatDiv.style.height = h + 'px';
-        if (!isMinimized) {
-            originalWidth = w;
-            originalHeight = h;
+    // Daftar selector umum untuk elemen pilihan jawaban (diurutkan berdasarkan prioritas)
+    const answerSelectors = [
+        '.option', '.answer', '[data-cy="option"]', '.choice', '.quiz-option', 
+        'button.option', '.options-container button', '.response-btn', 
+        '.answer-choice', '.selectable-option', '.multiple-choice-option',
+        '.option-item', '.btn-option', '.quiz-answer-option'
+    ];
+
+    // Daftar selector umum untuk elemen soal
+    const questionSelectors = [
+        '.question-text', '[data-cy="question-text"]', '.question', '.quiz-question',
+        '.question-title', '.question-content', '.quiz-question-text',
+        '.question-display', '.question-container .text'
+    ];
+
+    // Fungsi untuk menemukan elemen pilihan jawaban
+    function findAnswerElements() {
+        for (let sel of answerSelectors) {
+            let elements = document.querySelectorAll(sel);
+            if (elements.length > 0) {
+                return elements;
+            }
+        }
+        // Jika tidak ada yang cocok, coba cari elemen dengan class mengandung kata "option" atau "answer"
+        let all = document.querySelectorAll('[class*="option"], [class*="answer"], [class*="choice"]');
+        if (all.length > 0) return all;
+        return [];
+    }
+
+    // Fungsi untuk menemukan elemen soal
+    function findQuestionElement() {
+        for (let sel of questionSelectors) {
+            let el = document.querySelector(sel);
+            if (el) return el;
+        }
+        // Jika tidak ada, cari elemen yang mungkin berisi teks panjang (heuristik)
+        let candidates = document.querySelectorAll('h1, h2, h3, h4, h5, h6, p, div');
+        for (let el of candidates) {
+            let text = el.innerText?.trim() || '';
+            if (text.length > 20 && !el.querySelector('input, button, a')) {
+                return el;
+            }
+        }
+        return null;
+    }
+
+    // Fungsi untuk auto answer
+    function autoAnswer() {
+        let options = findAnswerElements();
+        if (options.length === 0) {
+            statusDiv.textContent = 'Status: tidak menemukan pilihan jawaban';
+            return;
+        }
+        // Pilih acak
+        let randomIndex = Math.floor(Math.random() * options.length);
+        options[randomIndex].click();
+        statusDiv.textContent = `Status: memilih jawaban ${randomIndex+1}/${options.length}`;
+    }
+
+    // Fungsi untuk menyalin teks soal
+    function copyQuestion() {
+        let questionEl = findQuestionElement();
+        if (questionEl) {
+            let text = questionEl.innerText || questionEl.textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                statusDiv.textContent = 'Soal disalin ke clipboard';
+            }).catch(err => {
+                statusDiv.textContent = 'Gagal menyalin: ' + err;
+            });
+        } else {
+            statusDiv.textContent = 'Tidak menemukan elemen soal';
         }
     }
 
@@ -331,44 +389,19 @@ javascript:(function(){
     resizeHandle.addEventListener('mousedown', (e) => e.stopPropagation());
     resizeHandle.addEventListener('touchstart', (e) => e.stopPropagation());
 
-    // --- Fungsi Auto Answer ---
-    function autoAnswer() {
-        let selector = selectorInput.value.trim();
-        if (!selector) {
-            statusDiv.textContent = 'Status: selector jawaban kosong';
-            return;
-        }
-        let options = document.querySelectorAll(selector);
-        if (options.length === 0) {
-            statusDiv.textContent = 'Status: tidak menemukan pilihan dengan selector: ' + selector;
-            return;
-        }
-        // Pilih acak
-        let randomIndex = Math.floor(Math.random() * options.length);
-        options[randomIndex].click();
-        statusDiv.textContent = `Status: memilih jawaban ${randomIndex+1}/${options.length}`;
-    }
-
-    function copyQuestion() {
-        let selector = questionSelectorInput.value.trim();
-        if (!selector) {
-            statusDiv.textContent = 'Status: selector soal kosong';
-            return;
-        }
-        let questionEl = document.querySelector(selector);
-        if (questionEl) {
-            let text = questionEl.innerText || questionEl.textContent;
-            navigator.clipboard.writeText(text).then(() => {
-                statusDiv.textContent = 'Soal disalin ke clipboard';
-            }).catch(err => {
-                statusDiv.textContent = 'Gagal menyalin: ' + err;
-            });
-        } else {
-            statusDiv.textContent = 'Tidak menemukan elemen soal dengan selector: ' + selector;
+    // --- Fungsi resize container ---
+    function resizeContainer(w, h) {
+        w = Math.min(maxWidth, Math.max(minWidth, w));
+        h = Math.min(maxHeight, Math.max(minHeight, h));
+        floatDiv.style.width = w + 'px';
+        floatDiv.style.height = h + 'px';
+        if (!isMinimized) {
+            originalWidth = w;
+            originalHeight = h;
         }
     }
 
-    // Event listener untuk tombol auto answer
+    // --- Event listener untuk auto answer ---
     startBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         if (autoInterval) clearInterval(autoInterval);
@@ -393,7 +426,7 @@ javascript:(function(){
     });
 
     // Mencegah event drag pada tombol dan input
-    [startBtn, stopBtn, copyBtn, delayInput, selectorInput, questionSelectorInput].forEach(el => {
+    [startBtn, stopBtn, copyBtn, delayInput].forEach(el => {
         el.addEventListener('mousedown', (e) => e.stopPropagation());
         el.addEventListener('touchstart', (e) => e.stopPropagation());
     });
