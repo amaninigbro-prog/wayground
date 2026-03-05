@@ -6,8 +6,8 @@ javascript:(function(){
         position: 'fixed',
         top: '100px',
         left: '100px',
-        width: '400px',
-        height: '300px',
+        width: '800px',
+        height: '600px',
         backgroundColor: '#222',
         color: '#eee',
         fontFamily: 'sans-serif',
@@ -31,14 +31,14 @@ javascript:(function(){
         cursor: 'grab',
         userSelect: 'none'
     });
-    header.innerHTML = '<span>Omega\'s Tool</span><div id="header-buttons" style="display: flex; align-items: center;"></div>';
+    header.innerHTML = '<span>Quizit Viewer</span><div id="header-buttons" style="display: flex; align-items: center;"></div>';
 
     // Container untuk tombol
     let headerButtons = header.querySelector('#header-buttons');
 
-    // Tombol Open Cheat Network
+    // Tombol Open in new tab (sebagai fallback)
     let openBtn = document.createElement('button');
-    openBtn.textContent = 'Open Cheat Network';
+    openBtn.textContent = 'Open in new tab';
     Object.assign(openBtn.style, {
         backgroundColor: '#e94560',
         color: 'white',
@@ -88,23 +88,25 @@ javascript:(function(){
     headerButtons.appendChild(minimizeBtn);
     headerButtons.appendChild(closeBtn);
 
-    // Wrapper konten utama (menampilkan pesan)
+    // Wrapper konten utama (iframe untuk menampilkan web)
     let contentWrapper = document.createElement('div');
     Object.assign(contentWrapper.style, {
         flex: 1,
         display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
         flexDirection: 'column',
-        textAlign: 'center',
-        padding: '10px'
+        overflow: 'hidden'
     });
-    contentWrapper.innerHTML = `
-        <div style="color: #e94560; font-size: 1.1em; margin: 15px;">
-            Site "cheatnetwork.eu" blocks embedding.<br>
-            <small style="display: block; margin-top: 5px; font-size: 0.8em; color: #aaa;">Click "Open Cheat Network" button above to view in a new tab.</small>
-        </div>
-    `;
+
+    // Buat iframe yang langsung memuat URL
+    let iframe = document.createElement('iframe');
+    iframe.src = 'https://quizit.online/services/quizizz';
+    Object.assign(iframe.style, {
+        width: '100%',
+        height: '100%',
+        border: 'none',
+        backgroundColor: '#fff'
+    });
+    contentWrapper.appendChild(iframe);
 
     // Placeholder saat minimized
     let minimizedPlaceholder = document.createElement('div');
@@ -125,8 +127,8 @@ javascript:(function(){
 
     // State
     let isMinimized = false;
-    const originalWidth = 400;
-    const originalHeight = 300;
+    const originalWidth = 800;
+    const originalHeight = 600;
     const minimizedWidth = 180;
     const minimizedHeight = 60;
 
@@ -143,14 +145,14 @@ javascript:(function(){
             contentWrapper.style.display = 'none';
             minimizedPlaceholder.style.display = 'block';
             minimizeBtn.textContent = '☐';
-            floatDiv.querySelector('span').textContent = 'Omega (Hidden)';
+            floatDiv.querySelector('span').textContent = 'Quizit (Hidden)';
             resizeContainer(minimizedWidth, minimizedHeight);
         } else {
             // Restore
             contentWrapper.style.display = 'flex';
             minimizedPlaceholder.style.display = 'none';
             minimizeBtn.textContent = '_';
-            floatDiv.querySelector('span').textContent = "Omega's Tool";
+            floatDiv.querySelector('span').textContent = 'Quizit Viewer';
             resizeContainer(originalWidth, originalHeight);
         }
         isMinimized = !isMinimized;
@@ -162,20 +164,19 @@ javascript:(function(){
         contentWrapper.style.display = 'flex';
         minimizedPlaceholder.style.display = 'none';
         minimizeBtn.textContent = '_';
-        floatDiv.querySelector('span').textContent = "Omega's Tool";
+        floatDiv.querySelector('span').textContent = 'Quizit Viewer';
         resizeContainer(originalWidth, originalHeight);
         isMinimized = false;
     });
 
     // Tombol open (buka tab baru)
     openBtn.addEventListener('click', () => {
-        window.open('https://cheatnetwork.eu/services/quizizz', '_blank');
+        window.open('https://quizit.online/services/quizizz', '_blank');
     });
 
     // Tombol close (hapus elemen)
     closeBtn.addEventListener('click', () => {
         floatDiv.remove();
-        // Bersihkan event listener drag jika perlu (akan terhapus bersama elemen)
     });
 
     // ---- Drag functionality ----
@@ -183,7 +184,7 @@ javascript:(function(){
     let startX, startY, startLeft, startTop;
 
     header.addEventListener('mousedown', (e) => {
-        e.preventDefault(); // Mencegah seleksi teks
+        e.preventDefault();
         isDragging = true;
         startX = e.clientX;
         startY = e.clientY;
@@ -200,7 +201,6 @@ javascript:(function(){
         let newLeft = startLeft + dx;
         let newTop = startTop + dy;
 
-        // Batasi agar tidak keluar viewport (opsional)
         newLeft = Math.max(0, Math.min(window.innerWidth - floatDiv.offsetWidth, newLeft));
         newTop = Math.max(0, Math.min(window.innerHeight - floatDiv.offsetHeight, newTop));
 
@@ -215,7 +215,6 @@ javascript:(function(){
         }
     });
 
-    // Pastikan cursor kembali normal jika mouse leave saat drag (opsional)
     header.addEventListener('mouseleave', () => {
         if (!isDragging) header.style.cursor = 'grab';
     });
