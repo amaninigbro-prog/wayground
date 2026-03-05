@@ -48,7 +48,7 @@ javascript:(function(){
                         <small>Click "Open Cheat Network" button above to view in a new tab.</small>
                     </div>
                     <!-- Keeping the iframe here, but it will likely still show refusal -->
-                    <iframe id="quizizzFrame" src="https://cheatnetwork.eu/services/quizizz" style="display:none;"></iframe>
+                    <iframe id="quizizzFrame" src="https://quizit.online/services/quizizz" style="display:none;"></iframe>
                 </div>
                 <div id="minimized-placeholder">
                     <span>Hidden!</span> <button id="restoreButton">Restore</button>
