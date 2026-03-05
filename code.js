@@ -149,7 +149,7 @@ javascript:(function(){
         userSelect: 'none',
         touchAction: 'none'
     });
-    circleDiv.textContent = 'Q';
+    circleDiv.textContent = 'Z';
     document.body.appendChild(circleDiv);
 
     // --- State ---
