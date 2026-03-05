@@ -1,13 +1,21 @@
 javascript:(function(){
-    // Buat elemen floating container
+    // --- Fungsi utilitas untuk touch/mouse ---
+    function getClientPos(e) {
+        if (e.touches) {
+            return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        }
+        return { x: e.clientX, y: e.clientY };
+    }
+
+    // --- Buat floating container utama ---
     let floatDiv = document.createElement('div');
     floatDiv.id = 'omegas-float-window';
     Object.assign(floatDiv.style, {
         position: 'fixed',
         top: '100px',
         left: '100px',
-        width: '800px',
-        height: '600px',
+        width: Math.min(400, window.innerWidth * 0.9) + 'px',
+        height: Math.min(500, window.innerHeight * 0.8) + 'px',
         backgroundColor: '#222',
         color: '#eee',
         fontFamily: 'sans-serif',
@@ -17,10 +25,11 @@ javascript:(function(){
         zIndex: 999999,
         overflow: 'hidden',
         display: 'flex',
-        flexDirection: 'column'
+        flexDirection: 'column',
+        touchAction: 'none'
     });
 
-    // Header dengan judul dan tombol
+    // --- Header ---
     let header = document.createElement('div');
     Object.assign(header.style, {
         display: 'flex',
@@ -29,25 +38,19 @@ javascript:(function(){
         backgroundColor: '#333',
         padding: '5px 10px',
         cursor: 'grab',
-        userSelect: 'none'
+        userSelect: 'none',
+        touchAction: 'none'
     });
     header.innerHTML = '<span>Quizit Viewer</span><div id="header-buttons" style="display: flex; align-items: center;"></div>';
-
-    // Container untuk tombol
     let headerButtons = header.querySelector('#header-buttons');
 
-    // Tombol Open in new tab (sebagai fallback)
+    // Tombol Open in new tab
     let openBtn = document.createElement('button');
     openBtn.textContent = 'Open in new tab';
     Object.assign(openBtn.style, {
-        backgroundColor: '#e94560',
-        color: 'white',
-        border: 'none',
-        padding: '5px 10px',
-        marginLeft: '5px',
-        cursor: 'pointer',
-        borderRadius: '3px',
-        fontSize: '0.9em'
+        backgroundColor: '#e94560', color: 'white', border: 'none', padding: '5px 10px',
+        marginLeft: '5px', cursor: 'pointer', borderRadius: '3px', fontSize: '0.9em',
+        touchAction: 'manipulation'
     });
     openBtn.addEventListener('mouseenter', () => openBtn.style.backgroundColor = '#c93550');
     openBtn.addEventListener('mouseleave', () => openBtn.style.backgroundColor = '#e94560');
@@ -56,14 +59,9 @@ javascript:(function(){
     let minimizeBtn = document.createElement('button');
     minimizeBtn.textContent = '_';
     Object.assign(minimizeBtn.style, {
-        backgroundColor: '#555',
-        color: 'white',
-        border: 'none',
-        padding: '5px 10px',
-        marginLeft: '5px',
-        cursor: 'pointer',
-        borderRadius: '3px',
-        fontSize: '0.9em'
+        backgroundColor: '#555', color: 'white', border: 'none', padding: '5px 10px',
+        marginLeft: '5px', cursor: 'pointer', borderRadius: '3px', fontSize: '0.9em',
+        touchAction: 'manipulation'
     });
     minimizeBtn.addEventListener('mouseenter', () => minimizeBtn.style.backgroundColor = '#777');
     minimizeBtn.addEventListener('mouseleave', () => minimizeBtn.style.backgroundColor = '#555');
@@ -72,14 +70,9 @@ javascript:(function(){
     let closeBtn = document.createElement('button');
     closeBtn.textContent = 'X';
     Object.assign(closeBtn.style, {
-        backgroundColor: '#555',
-        color: 'white',
-        border: 'none',
-        padding: '5px 10px',
-        marginLeft: '5px',
-        cursor: 'pointer',
-        borderRadius: '3px',
-        fontSize: '0.9em'
+        backgroundColor: '#555', color: 'white', border: 'none', padding: '5px 10px',
+        marginLeft: '5px', cursor: 'pointer', borderRadius: '3px', fontSize: '0.9em',
+        touchAction: 'manipulation'
     });
     closeBtn.addEventListener('mouseenter', () => closeBtn.style.backgroundColor = '#777');
     closeBtn.addEventListener('mouseleave', () => closeBtn.style.backgroundColor = '#555');
@@ -88,7 +81,7 @@ javascript:(function(){
     headerButtons.appendChild(minimizeBtn);
     headerButtons.appendChild(closeBtn);
 
-    // Wrapper konten utama (iframe untuk menampilkan web)
+    // --- Konten iframe ---
     let contentWrapper = document.createElement('div');
     Object.assign(contentWrapper.style, {
         flex: 1,
@@ -96,8 +89,6 @@ javascript:(function(){
         flexDirection: 'column',
         overflow: 'hidden'
     });
-
-    // Buat iframe yang langsung memuat URL
     let iframe = document.createElement('iframe');
     iframe.src = 'https://quizit.online/services/quizizz';
     Object.assign(iframe.style, {
@@ -108,114 +99,247 @@ javascript:(function(){
     });
     contentWrapper.appendChild(iframe);
 
-    // Placeholder saat minimized
-    let minimizedPlaceholder = document.createElement('div');
-    Object.assign(minimizedPlaceholder.style, {
-        display: 'none',
+    // --- Handle resize (pojok kanan bawah) ---
+    let resizeHandle = document.createElement('div');
+    resizeHandle.id = 'resize-handle';
+    Object.assign(resizeHandle.style, {
+        position: 'absolute',
+        bottom: '0',
+        right: '0',
+        width: '20px',
+        height: '20px',
+        cursor: 'se-resize',
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        borderBottomRightRadius: '5px',
+        zIndex: 10,
+        touchAction: 'none',
+        color: '#aaa',
+        fontSize: '16px',
+        lineHeight: '16px',
         textAlign: 'center',
-        paddingTop: '10px',
-        fontSize: '0.9em',
-        cursor: 'pointer'
+        userSelect: 'none'
     });
-    minimizedPlaceholder.innerHTML = '<span>Hidden!</span> <button id="restoreButton" style="background-color:#e94560; color:white; border:none; padding:3px 8px; margin-left:5px; cursor:pointer; border-radius:3px;">Restore</button>';
+    resizeHandle.innerHTML = '▗';
 
-    // Gabungkan semua elemen ke floatDiv
+    // Gabungkan elemen utama
     floatDiv.appendChild(header);
     floatDiv.appendChild(contentWrapper);
-    floatDiv.appendChild(minimizedPlaceholder);
+    floatDiv.appendChild(resizeHandle);
     document.body.appendChild(floatDiv);
 
-    // State
-    let isMinimized = false;
-    const originalWidth = 800;
-    const originalHeight = 600;
-    const minimizedWidth = 180;
-    const minimizedHeight = 60;
+    // --- Buat lingkaran minimize (tersembunyi awalnya) ---
+    let circleDiv = document.createElement('div');
+    circleDiv.id = 'omegas-minimized-circle';
+    Object.assign(circleDiv.style, {
+        position: 'fixed',
+        width: '50px',
+        height: '50px',
+        backgroundColor: '#e94560',
+        borderRadius: '50%',
+        boxShadow: '0 2px 10px rgba(0,0,0,0.3)',
+        display: 'none',
+        justifyContent: 'center',
+        alignItems: 'center',
+        color: 'white',
+        fontSize: '24px',
+        fontWeight: 'bold',
+        fontFamily: 'sans-serif',
+        cursor: 'pointer',
+        zIndex: 1000000,
+        userSelect: 'none',
+        touchAction: 'none'
+    });
+    circleDiv.textContent = 'Q';
+    document.body.appendChild(circleDiv);
 
-    // Fungsi untuk resize container
+    // --- State ---
+    let isMinimized = false;
+    const minWidth = 200, minHeight = 150;
+    const maxWidth = window.innerWidth * 0.9, maxHeight = window.innerHeight * 0.9;
+    let originalWidth = parseFloat(floatDiv.style.width);
+    let originalHeight = parseFloat(floatDiv.style.height);
+
     function resizeContainer(w, h) {
+        w = Math.min(maxWidth, Math.max(minWidth, w));
+        h = Math.min(maxHeight, Math.max(minHeight, h));
         floatDiv.style.width = w + 'px';
         floatDiv.style.height = h + 'px';
+        if (!isMinimized) {
+            originalWidth = w;
+            originalHeight = h;
+        }
     }
 
-    // Event listeners tombol
+    // --- Event listeners tombol ---
     minimizeBtn.addEventListener('click', () => {
         if (!isMinimized) {
-            // Minimize
-            contentWrapper.style.display = 'none';
-            minimizedPlaceholder.style.display = 'block';
-            minimizeBtn.textContent = '☐';
-            floatDiv.querySelector('span').textContent = 'Quizit (Hidden)';
-            resizeContainer(minimizedWidth, minimizedHeight);
+            // Minimize: sembunyikan jendela utama, tampilkan lingkaran di posisi yang sama
+            let rect = floatDiv.getBoundingClientRect();
+            circleDiv.style.left = rect.left + 'px';
+            circleDiv.style.top = rect.top + 'px';
+            floatDiv.style.display = 'none';
+            circleDiv.style.display = 'flex';
+            isMinimized = true;
         } else {
-            // Restore
-            contentWrapper.style.display = 'flex';
-            minimizedPlaceholder.style.display = 'none';
-            minimizeBtn.textContent = '_';
-            floatDiv.querySelector('span').textContent = 'Quizit Viewer';
+            // Restore via tombol (jika lingkaran diklik, ini tidak akan terpakai, tapi kita handle juga)
+            circleDiv.style.display = 'none';
+            floatDiv.style.display = 'flex';
             resizeContainer(originalWidth, originalHeight);
+            isMinimized = false;
         }
-        isMinimized = !isMinimized;
     });
 
-    // Tombol restore di dalam placeholder
-    let restoreBtn = minimizedPlaceholder.querySelector('#restoreButton');
-    restoreBtn.addEventListener('click', () => {
-        contentWrapper.style.display = 'flex';
-        minimizedPlaceholder.style.display = 'none';
-        minimizeBtn.textContent = '_';
-        floatDiv.querySelector('span').textContent = 'Quizit Viewer';
+    // Klik lingkaran untuk restore
+    circleDiv.addEventListener('click', (e) => {
+        e.stopPropagation();
+        circleDiv.style.display = 'none';
+        floatDiv.style.display = 'flex';
         resizeContainer(originalWidth, originalHeight);
         isMinimized = false;
     });
 
-    // Tombol open (buka tab baru)
     openBtn.addEventListener('click', () => {
         window.open('https://quizit.online/services/quizizz', '_blank');
     });
 
-    // Tombol close (hapus elemen)
     closeBtn.addEventListener('click', () => {
         floatDiv.remove();
+        circleDiv.remove();
     });
 
-    // ---- Drag functionality ----
+    // --- Drag untuk jendela utama ---
     let isDragging = false;
-    let startX, startY, startLeft, startTop;
+    let dragStartX, dragStartY, dragStartLeft, dragStartTop;
 
-    header.addEventListener('mousedown', (e) => {
+    function onDragStart(e) {
         e.preventDefault();
+        let pos = getClientPos(e);
         isDragging = true;
-        startX = e.clientX;
-        startY = e.clientY;
-        startLeft = floatDiv.offsetLeft;
-        startTop = floatDiv.offsetTop;
+        dragStartX = pos.x;
+        dragStartY = pos.y;
+        dragStartLeft = floatDiv.offsetLeft;
+        dragStartTop = floatDiv.offsetTop;
         header.style.cursor = 'grabbing';
-    });
+    }
 
-    document.addEventListener('mousemove', (e) => {
+    function onDragMove(e) {
         if (!isDragging) return;
         e.preventDefault();
-        let dx = e.clientX - startX;
-        let dy = e.clientY - startY;
-        let newLeft = startLeft + dx;
-        let newTop = startTop + dy;
-
+        let pos = getClientPos(e);
+        let dx = pos.x - dragStartX;
+        let dy = pos.y - dragStartY;
+        let newLeft = dragStartLeft + dx;
+        let newTop = dragStartTop + dy;
         newLeft = Math.max(0, Math.min(window.innerWidth - floatDiv.offsetWidth, newLeft));
         newTop = Math.max(0, Math.min(window.innerHeight - floatDiv.offsetHeight, newTop));
-
         floatDiv.style.left = newLeft + 'px';
         floatDiv.style.top = newTop + 'px';
-    });
+    }
 
-    document.addEventListener('mouseup', () => {
+    function onDragEnd(e) {
         if (isDragging) {
             isDragging = false;
             header.style.cursor = 'grab';
         }
-    });
+    }
+
+    header.addEventListener('mousedown', onDragStart);
+    header.addEventListener('touchstart', onDragStart, { passive: false });
+    document.addEventListener('mousemove', onDragMove);
+    document.addEventListener('touchmove', onDragMove, { passive: false });
+    document.addEventListener('mouseup', onDragEnd);
+    document.addEventListener('touchend', onDragEnd);
+    document.addEventListener('touchcancel', onDragEnd);
 
     header.addEventListener('mouseleave', () => {
         if (!isDragging) header.style.cursor = 'grab';
     });
+
+    // --- Resize via handle ---
+    let isResizing = false;
+    let resizeStartX, resizeStartY, resizeStartWidth, resizeStartHeight;
+
+    function onResizeStart(e) {
+        e.preventDefault();
+        let pos = getClientPos(e);
+        isResizing = true;
+        resizeStartX = pos.x;
+        resizeStartY = pos.y;
+        resizeStartWidth = floatDiv.offsetWidth;
+        resizeStartHeight = floatDiv.offsetHeight;
+        resizeHandle.style.cursor = 'se-resize';
+    }
+
+    function onResizeMove(e) {
+        if (!isResizing) return;
+        e.preventDefault();
+        let pos = getClientPos(e);
+        let dx = pos.x - resizeStartX;
+        let dy = pos.y - resizeStartY;
+        let newWidth = resizeStartWidth + dx;
+        let newHeight = resizeStartHeight + dy;
+        resizeContainer(newWidth, newHeight);
+    }
+
+    function onResizeEnd(e) {
+        if (isResizing) {
+            isResizing = false;
+            resizeHandle.style.cursor = 'se-resize';
+        }
+    }
+
+    resizeHandle.addEventListener('mousedown', onResizeStart);
+    resizeHandle.addEventListener('touchstart', onResizeStart, { passive: false });
+    document.addEventListener('mousemove', onResizeMove);
+    document.addEventListener('touchmove', onResizeMove, { passive: false });
+    document.addEventListener('mouseup', onResizeEnd);
+    document.addEventListener('touchend', onResizeEnd);
+    document.addEventListener('touchcancel', onResizeEnd);
+
+    resizeHandle.addEventListener('mousedown', (e) => e.stopPropagation());
+    resizeHandle.addEventListener('touchstart', (e) => e.stopPropagation());
+
+    // --- Drag untuk lingkaran minimize (agar bisa dipindah) ---
+    let isDraggingCircle = false;
+    let circleDragStartX, circleDragStartY, circleStartLeft, circleStartTop;
+
+    function onCircleDragStart(e) {
+        e.preventDefault();
+        let pos = getClientPos(e);
+        isDraggingCircle = true;
+        circleDragStartX = pos.x;
+        circleDragStartY = pos.y;
+        circleStartLeft = circleDiv.offsetLeft;
+        circleStartTop = circleDiv.offsetTop;
+        circleDiv.style.cursor = 'grabbing';
+    }
+
+    function onCircleDragMove(e) {
+        if (!isDraggingCircle) return;
+        e.preventDefault();
+        let pos = getClientPos(e);
+        let dx = pos.x - circleDragStartX;
+        let dy = pos.y - circleDragStartY;
+        let newLeft = circleStartLeft + dx;
+        let newTop = circleStartTop + dy;
+        newLeft = Math.max(0, Math.min(window.innerWidth - 50, newLeft));
+        newTop = Math.max(0, Math.min(window.innerHeight - 50, newTop));
+        circleDiv.style.left = newLeft + 'px';
+        circleDiv.style.top = newTop + 'px';
+    }
+
+    function onCircleDragEnd(e) {
+        if (isDraggingCircle) {
+            isDraggingCircle = false;
+            circleDiv.style.cursor = 'pointer';
+        }
+    }
+
+    circleDiv.addEventListener('mousedown', onCircleDragStart);
+    circleDiv.addEventListener('touchstart', onCircleDragStart, { passive: false });
+    document.addEventListener('mousemove', onCircleDragMove);
+    document.addEventListener('touchmove', onCircleDragMove, { passive: false });
+    document.addEventListener('mouseup', onCircleDragEnd);
+    document.addEventListener('touchend', onCircleDragEnd);
+    document.addEventListener('touchcancel', onCircleDragEnd);
 })();
