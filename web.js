@@ -27,7 +27,7 @@ javascript:(function(){
         touchAction: 'none'
     });
 
-    // --- Header ---
+    // --- Header (dengan tombol tambahan Auto Answer) ---
     let header = document.createElement('div');
     Object.assign(header.style, {
         display: 'flex',
@@ -39,8 +39,19 @@ javascript:(function(){
         userSelect: 'none',
         touchAction: 'none'
     });
-    header.innerHTML = '<span>Quizit Viewer + Auto Answer</span><div id="header-buttons" style="display: flex; align-items: center;"></div>';
+    header.innerHTML = '<span>Quizit Viewer</span><div id="header-buttons" style="display: flex; align-items: center;"></div>';
     let headerButtons = header.querySelector('#header-buttons');
+
+    // Tombol Auto Answer (gear)
+    let autoBtn = document.createElement('button');
+    autoBtn.textContent = '⚙️';
+    Object.assign(autoBtn.style, {
+        backgroundColor: '#555', color: 'white', border: 'none', padding: '5px 10px',
+        marginLeft: '5px', cursor: 'pointer', borderRadius: '3px', fontSize: '0.9em',
+        touchAction: 'manipulation'
+    });
+    autoBtn.addEventListener('mouseenter', () => autoBtn.style.backgroundColor = '#777');
+    autoBtn.addEventListener('mouseleave', () => autoBtn.style.backgroundColor = '#555');
 
     // Tombol Minimize
     let minimizeBtn = document.createElement('button');
@@ -64,24 +75,32 @@ javascript:(function(){
     closeBtn.addEventListener('mouseenter', () => closeBtn.style.backgroundColor = '#777');
     closeBtn.addEventListener('mouseleave', () => closeBtn.style.backgroundColor = '#555');
 
+    headerButtons.appendChild(autoBtn);
     headerButtons.appendChild(minimizeBtn);
     headerButtons.appendChild(closeBtn);
 
-    // --- Panel kontrol auto answer (di bawah header) ---
-    let controlPanel = document.createElement('div');
-    Object.assign(controlPanel.style, {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '5px',
-        padding: '5px 10px',
-        backgroundColor: '#444',
-        borderBottom: '1px solid #555'
+    // --- Panel Auto Answer (awalnya tersembunyi) ---
+    let autoPanel = document.createElement('div');
+    Object.assign(autoPanel.style, {
+        display: 'none',
+        padding: '10px',
+        backgroundColor: '#333',
+        borderTop: '1px solid #444',
+        fontSize: '0.9em',
+        color: '#eee'
     });
-    controlPanel.innerHTML = `
-        <span style="color:#eee; font-size:0.9rem;">Auto Answer:</span>
-        <input id="omegas-delay" type="number" min="0.5" step="0.5" value="2" style="width:60px; padding:3px; border-radius:3px; border:none;">
-        <span style="color:#eee;">s</span>
-        <button id="omegas-toggle-auto" style="background:#4CAF50; color:white; border:none; padding:5px 10px; border-radius:3px; cursor:pointer;">Start</button>
+    autoPanel.innerHTML = `
+        <div style="display: flex; flex-direction: column; gap: 5px;">
+            <label>Delay (detik): <input type="number" id="auto-delay" min="0.5" step="0.5" value="2" style="width: 60px; background:#444; color:white; border:1px solid #555; padding:2px;"></label>
+            <label>Selector jawaban: <input type="text" id="auto-selector" value=".option, .answer, [data-cy='option'], .choice, .quiz-option, button.option" style="width:100%; background:#444; color:white; border:1px solid #555; padding:2px;"></label>
+            <label>Selector soal: <input type="text" id="question-selector" value=".question-text, [data-cy='question-text'], .question, .quiz-question" style="width:100%; background:#444; color:white; border:1px solid #555; padding:2px;"></label>
+            <div style="display: flex; gap: 5px;">
+                <button id="auto-start" style="background:#4CAF50; color:white; border:none; padding:5px; border-radius:3px; cursor:pointer;">Start</button>
+                <button id="auto-stop" style="background:#f44336; color:white; border:none; padding:5px; border-radius:3px; cursor:pointer;">Stop</button>
+                <button id="auto-copy" style="background:#2196F3; color:white; border:none; padding:5px; border-radius:3px; cursor:pointer;">Copy Soal</button>
+            </div>
+            <div id="auto-status" style="font-size:0.8em; color:#aaa;">Status: idle</div>
+        </div>
     `;
 
     // --- Konten iframe ---
@@ -126,7 +145,7 @@ javascript:(function(){
 
     // Gabungkan elemen utama
     floatDiv.appendChild(header);
-    floatDiv.appendChild(controlPanel);
+    floatDiv.appendChild(autoPanel);
     floatDiv.appendChild(contentWrapper);
     floatDiv.appendChild(resizeHandle);
     document.body.appendChild(floatDiv);
@@ -152,7 +171,7 @@ javascript:(function(){
         userSelect: 'none',
         border: '1px solid rgba(255,255,255,0.2)',
         backdropFilter: 'blur(2px)',
-        transition: 'background-color 0.2s'
+        transition: 'backgroundColor 0.2s'
     });
     restoreBtn.textContent = 'Q';
     restoreBtn.title = 'Klik untuk mengembalikan jendela';
@@ -160,98 +179,24 @@ javascript:(function(){
     restoreBtn.addEventListener('mouseleave', () => restoreBtn.style.backgroundColor = 'rgba(233, 69, 96, 0.25)');
     document.body.appendChild(restoreBtn);
 
-    // --- State untuk auto answer ---
+    // --- State untuk drag, resize, auto answer ---
     let isMinimized = false;
-    let isAutoAnswering = false;
-    let autoAnswerInterval = null;
-
-    // Fungsi memuat script highlight jawaban (dari repositori gbaranski)
-    function loadHighlightScript() {
-        return new Promise((resolve, reject) => {
-            if (window.quizizzCheatLoaded) {
-                resolve();
-                return;
-            }
-            fetch("https://raw.githubusercontent.com/gbaranski/quizizz-cheat/master/dist/bundle.js")
-                .then(r => r.text())
-                .then(code => {
-                    try {
-                        eval(code);
-                        window.quizizzCheatLoaded = true;
-                        resolve();
-                    } catch (e) {
-                        reject(e);
-                    }
-                })
-                .catch(reject);
-        });
-    }
-
-    // Fungsi auto answer
-    async function startAutoAnswer(delaySec) {
-        if (isAutoAnswering) return;
-        await loadHighlightScript().catch(e => console.error("Gagal load highlight", e));
-        isAutoAnswering = true;
-        toggleBtn.style.background = '#f44336';
-        toggleBtn.textContent = 'Stop';
-
-        // Set untuk melacak soal yang sudah diproses
-        let processedQuestions = new Set();
-
-        autoAnswerInterval = setInterval(() => {
-            // Cari soal aktif
-            let questionContainer = document.querySelector('.question-container, .question, [data-testid="question"]');
-            if (!questionContainer) return;
-
-            // Dapatkan ID unik soal (misal dari teks atau atribut)
-            let questionId = questionContainer.innerText.substring(0, 50); // sederhana
-            if (processedQuestions.has(questionId)) return; // sudah diproses
-
-            // Cari jawaban benar yang sudah di-highlight
-            let correctAnswers = document.querySelectorAll('.answer--correct, .correct, [data-correct="true"]');
-            if (correctAnswers.length === 0) return;
-
-            // Tandai bahwa soal ini akan diproses
-            processedQuestions.add(questionId);
-
-            // Klik jawaban setelah delay
-            setTimeout(() => {
-                correctAnswers.forEach(ans => {
-                    if (!ans.classList.contains('disabled') && !ans.classList.contains('selected')) {
-                        ans.click();
-                    }
-                });
-            }, delaySec * 1000);
-        }, 500);
-    }
-
-    function stopAutoAnswer() {
-        if (autoAnswerInterval) {
-            clearInterval(autoAnswerInterval);
-            autoAnswerInterval = null;
-        }
-        isAutoAnswering = false;
-        toggleBtn.style.background = '#4CAF50';
-        toggleBtn.textContent = 'Start';
-    }
-
-    // Tombol toggle auto answer
-    let toggleBtn = document.getElementById('omegas-toggle-auto');
-    toggleBtn.addEventListener('click', () => {
-        if (isAutoAnswering) {
-            stopAutoAnswer();
-        } else {
-            let delay = parseFloat(document.getElementById('omegas-delay').value) || 2;
-            startAutoAnswer(delay);
-        }
-    });
-
-    // --- State floating window ---
     const minWidth = 200, minHeight = 150;
     const maxWidth = window.innerWidth * 0.9, maxHeight = window.innerHeight * 0.9;
     let originalWidth = parseFloat(floatDiv.style.width);
     let originalHeight = parseFloat(floatDiv.style.height);
 
+    let autoInterval = null;
+    let autoDelay = 2000; // default 2 detik
+    let statusDiv = autoPanel.querySelector('#auto-status');
+    let delayInput = autoPanel.querySelector('#auto-delay');
+    let selectorInput = autoPanel.querySelector('#auto-selector');
+    let questionSelectorInput = autoPanel.querySelector('#question-selector');
+    let startBtn = autoPanel.querySelector('#auto-start');
+    let stopBtn = autoPanel.querySelector('#auto-stop');
+    let copyBtn = autoPanel.querySelector('#auto-copy');
+
+    // Fungsi untuk mengubah ukuran
     function resizeContainer(w, h) {
         w = Math.min(maxWidth, Math.max(minWidth, w));
         h = Math.min(maxHeight, Math.max(minHeight, h));
@@ -263,7 +208,16 @@ javascript:(function(){
         }
     }
 
-    // --- Event listeners minimize/restore ---
+    // --- Event listeners untuk tombol header ---
+    autoBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (autoPanel.style.display === 'none') {
+            autoPanel.style.display = 'block';
+        } else {
+            autoPanel.style.display = 'none';
+        }
+    });
+
     minimizeBtn.addEventListener('click', () => {
         if (!isMinimized) {
             floatDiv.style.display = 'none';
@@ -280,9 +234,9 @@ javascript:(function(){
     });
 
     closeBtn.addEventListener('click', () => {
+        if (autoInterval) clearInterval(autoInterval);
         floatDiv.remove();
         restoreBtn.remove();
-        stopAutoAnswer();
     });
 
     // --- Drag untuk jendela utama ---
@@ -377,47 +331,71 @@ javascript:(function(){
     resizeHandle.addEventListener('mousedown', (e) => e.stopPropagation());
     resizeHandle.addEventListener('touchstart', (e) => e.stopPropagation());
 
-    // --- Drag untuk lingkaran minimize ---
-    let isDraggingCircle = false;
-    let circleDragStartX, circleDragStartY, circleStartLeft, circleStartTop;
-
-    function onCircleDragStart(e) {
-        e.preventDefault();
-        let pos = getClientPos(e);
-        isDraggingCircle = true;
-        circleDragStartX = pos.x;
-        circleDragStartY = pos.y;
-        circleStartLeft = restoreBtn.offsetLeft;
-        circleStartTop = restoreBtn.offsetTop;
-        restoreBtn.style.cursor = 'grabbing';
+    // --- Fungsi Auto Answer ---
+    function autoAnswer() {
+        let selector = selectorInput.value.trim();
+        if (!selector) {
+            statusDiv.textContent = 'Status: selector jawaban kosong';
+            return;
+        }
+        let options = document.querySelectorAll(selector);
+        if (options.length === 0) {
+            statusDiv.textContent = 'Status: tidak menemukan pilihan dengan selector: ' + selector;
+            return;
+        }
+        // Pilih acak
+        let randomIndex = Math.floor(Math.random() * options.length);
+        options[randomIndex].click();
+        statusDiv.textContent = `Status: memilih jawaban ${randomIndex+1}/${options.length}`;
     }
 
-    function onCircleDragMove(e) {
-        if (!isDraggingCircle) return;
-        e.preventDefault();
-        let pos = getClientPos(e);
-        let dx = pos.x - circleDragStartX;
-        let dy = pos.y - circleDragStartY;
-        let newLeft = circleStartLeft + dx;
-        let newTop = circleStartTop + dy;
-        newLeft = Math.max(0, Math.min(window.innerWidth - 50, newLeft));
-        newTop = Math.max(0, Math.min(window.innerHeight - 50, newTop));
-        restoreBtn.style.left = newLeft + 'px';
-        restoreBtn.style.top = newTop + 'px';
-    }
-
-    function onCircleDragEnd(e) {
-        if (isDraggingCircle) {
-            isDraggingCircle = false;
-            restoreBtn.style.cursor = 'pointer';
+    function copyQuestion() {
+        let selector = questionSelectorInput.value.trim();
+        if (!selector) {
+            statusDiv.textContent = 'Status: selector soal kosong';
+            return;
+        }
+        let questionEl = document.querySelector(selector);
+        if (questionEl) {
+            let text = questionEl.innerText || questionEl.textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                statusDiv.textContent = 'Soal disalin ke clipboard';
+            }).catch(err => {
+                statusDiv.textContent = 'Gagal menyalin: ' + err;
+            });
+        } else {
+            statusDiv.textContent = 'Tidak menemukan elemen soal dengan selector: ' + selector;
         }
     }
 
-    restoreBtn.addEventListener('mousedown', onCircleDragStart);
-    restoreBtn.addEventListener('touchstart', onCircleDragStart, { passive: false });
-    document.addEventListener('mousemove', onCircleDragMove);
-    document.addEventListener('touchmove', onCircleDragMove, { passive: false });
-    document.addEventListener('mouseup', onCircleDragEnd);
-    document.addEventListener('touchend', onCircleDragEnd);
-    document.addEventListener('touchcancel', onCircleDragEnd);
+    // Event listener untuk tombol auto answer
+    startBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (autoInterval) clearInterval(autoInterval);
+        autoDelay = parseFloat(delayInput.value) * 1000;
+        if (isNaN(autoDelay) || autoDelay < 500) autoDelay = 2000;
+        autoInterval = setInterval(autoAnswer, autoDelay);
+        statusDiv.textContent = `Status: auto answer berjalan (delay ${delayInput.value} detik)`;
+    });
+
+    stopBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (autoInterval) {
+            clearInterval(autoInterval);
+            autoInterval = null;
+            statusDiv.textContent = 'Status: dihentikan';
+        }
+    });
+
+    copyBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        copyQuestion();
+    });
+
+    // Mencegah event drag pada tombol dan input
+    [startBtn, stopBtn, copyBtn, delayInput, selectorInput, questionSelectorInput].forEach(el => {
+        el.addEventListener('mousedown', (e) => e.stopPropagation());
+        el.addEventListener('touchstart', (e) => e.stopPropagation());
+    });
+
 })();
