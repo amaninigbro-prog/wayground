@@ -145,7 +145,7 @@ javascript:(function(){
         backdropFilter: 'blur(2px)',
         transition: 'background-color 0.2s'
     });
-    restoreBtn.textContent = '📝'; // Ikon notepad sederhana (atau bisa pakai 'N')
+    restoreBtn.textContent = 'Z'; // Ikon notepad sederhana (atau bisa pakai 'N')
     restoreBtn.title = 'Klik untuk mengembalikan jendela';
     restoreBtn.addEventListener('mouseenter', () => restoreBtn.style.backgroundColor = 'rgba(233, 69, 96, 0.5)');
     restoreBtn.addEventListener('mouseleave', () => restoreBtn.style.backgroundColor = 'rgba(233, 69, 96, 0.25)');
