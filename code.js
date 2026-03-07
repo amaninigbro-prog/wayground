@@ -134,7 +134,8 @@ javascript:(function(){
         userSelect: 'none',
         border: '1px solid rgba(255,255,255,0.2)',
         backdropFilter: 'blur(2px)',
-        transition: 'background-color 0.2s'
+        transition: 'background-color 0.2s',
+        touchAction: 'manipulation'
     });
     restoreBtn.textContent = 'Q';
     restoreBtn.title = 'Klik untuk mengembalikan jendela';
@@ -160,16 +161,27 @@ javascript:(function(){
         }
     }
 
-    // --- Event listeners ---
+    // --- Event listeners tombol (dengan pencegahan propagasi sentuhan) ---
     minimizeBtn.addEventListener('click', () => {
         if (!isMinimized) {
             floatDiv.style.display = 'none';
             restoreBtn.style.display = 'flex';
             isMinimized = true;
-        } else {
-            // (Tidak akan terjadi karena tombol minimize hanya aktif saat jendela terbuka)
         }
     });
+    // Hentikan sentuhan agar tidak memicu drag di header
+    minimizeBtn.addEventListener('touchstart', (e) => {
+        e.stopPropagation();
+        // e.preventDefault(); // tidak perlu karena click tetap berjalan
+    }, { passive: false });
+
+    closeBtn.addEventListener('click', () => {
+        floatDiv.remove();
+        restoreBtn.remove();
+    });
+    closeBtn.addEventListener('touchstart', (e) => {
+        e.stopPropagation();
+    }, { passive: false });
 
     restoreBtn.addEventListener('click', () => {
         restoreBtn.style.display = 'none';
@@ -177,11 +189,9 @@ javascript:(function(){
         resizeContainer(originalWidth, originalHeight);
         isMinimized = false;
     });
-
-    closeBtn.addEventListener('click', () => {
-        floatDiv.remove();
-        restoreBtn.remove();
-    });
+    restoreBtn.addEventListener('touchstart', (e) => {
+        e.stopPropagation();
+    }, { passive: false });
 
     // --- Drag untuk jendela utama ---
     let isDragging = false;
@@ -206,7 +216,6 @@ javascript:(function(){
         let dy = pos.y - dragStartY;
         let newLeft = dragStartLeft + dx;
         let newTop = dragStartTop + dy;
-        // Batasi agar tidak keluar viewport (opsional, bisa dihapus jika ingin lebih bebas)
         newLeft = Math.max(0, Math.min(window.innerWidth - floatDiv.offsetWidth, newLeft));
         newTop = Math.max(0, Math.min(window.innerHeight - floatDiv.offsetHeight, newTop));
         floatDiv.style.left = newLeft + 'px';
