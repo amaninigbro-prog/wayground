@@ -39,7 +39,7 @@ javascript:(function(){
         userSelect: 'none',
         touchAction: 'none'
     });
-    header.innerHTML = '<span>Notepad Sederhana</span><div id="header-buttons" style="display: flex; align-items: center;"></div>';
+    header.innerHTML = '<span>ZulfaPad</span><div id="header-buttons" style="display: flex; align-items: center;"></div>';
     let headerButtons = header.querySelector('#header-buttons');
 
     // Tombol Minimize
