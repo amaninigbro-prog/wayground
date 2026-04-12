@@ -76,7 +76,7 @@ javascript:(function(){
         overflow: 'hidden'
     });
     let iframe = document.createElement('iframe');
-    iframe.src = 'https://quizit.online/services/quizizz';
+    iframe.src = 'https://cheatnetwork.eu/services/quizizz';
     Object.assign(iframe.style, {
         width: '100%',
         height: '100%',
