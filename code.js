@@ -1,4 +1,4 @@
-javascript:(function(){
+(function(){
     // --- Fungsi utilitas untuk touch/mouse ---
     function getClientPos(e) {
         if (e.touches) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -76,7 +76,7 @@ javascript:(function(){
         overflow: 'hidden'
     });
     let iframe = document.createElement('iframe');
-    iframe.src = 'https://cheatnetwork.eu/services/quizizz';
+    iframe.src = 'https://cheatnetwork.eu/services/quizizz';  // The website URL
     Object.assign(iframe.style, {
         width: '100%',
         height: '100%',
@@ -161,7 +161,7 @@ javascript:(function(){
         }
     }
 
-    // --- Event listeners tombol (dengan pencegahan propagasi sentuhan) ---
+    // --- Event listeners tombol ---
     minimizeBtn.addEventListener('click', () => {
         if (!isMinimized) {
             floatDiv.style.display = 'none';
@@ -169,19 +169,11 @@ javascript:(function(){
             isMinimized = true;
         }
     });
-    // Hentikan sentuhan agar tidak memicu drag di header
-    minimizeBtn.addEventListener('touchstart', (e) => {
-        e.stopPropagation();
-        // e.preventDefault(); // tidak perlu karena click tetap berjalan
-    }, { passive: false });
 
     closeBtn.addEventListener('click', () => {
         floatDiv.remove();
         restoreBtn.remove();
     });
-    closeBtn.addEventListener('touchstart', (e) => {
-        e.stopPropagation();
-    }, { passive: false });
 
     restoreBtn.addEventListener('click', () => {
         restoreBtn.style.display = 'none';
@@ -189,9 +181,6 @@ javascript:(function(){
         resizeContainer(originalWidth, originalHeight);
         isMinimized = false;
     });
-    restoreBtn.addEventListener('touchstart', (e) => {
-        e.stopPropagation();
-    }, { passive: false });
 
     // --- Drag untuk jendela utama ---
     let isDragging = false;
@@ -236,52 +225,4 @@ javascript:(function(){
     document.addEventListener('mouseup', onDragEnd);
     document.addEventListener('touchend', onDragEnd);
     document.addEventListener('touchcancel', onDragEnd);
-
-    header.addEventListener('mouseleave', () => {
-        if (!isDragging) header.style.cursor = 'grab';
-    });
-
-    // --- Resize via handle ---
-    let isResizing = false;
-    let resizeStartX, resizeStartY, resizeStartWidth, resizeStartHeight;
-
-    function onResizeStart(e) {
-        e.preventDefault();
-        let pos = getClientPos(e);
-        isResizing = true;
-        resizeStartX = pos.x;
-        resizeStartY = pos.y;
-        resizeStartWidth = floatDiv.offsetWidth;
-        resizeStartHeight = floatDiv.offsetHeight;
-        resizeHandle.style.cursor = 'se-resize';
-    }
-
-    function onResizeMove(e) {
-        if (!isResizing) return;
-        e.preventDefault();
-        let pos = getClientPos(e);
-        let dx = pos.x - resizeStartX;
-        let dy = pos.y - resizeStartY;
-        let newWidth = resizeStartWidth + dx;
-        let newHeight = resizeStartHeight + dy;
-        resizeContainer(newWidth, newHeight);
-    }
-
-    function onResizeEnd(e) {
-        if (isResizing) {
-            isResizing = false;
-            resizeHandle.style.cursor = 'se-resize';
-        }
-    }
-
-    resizeHandle.addEventListener('mousedown', onResizeStart);
-    resizeHandle.addEventListener('touchstart', onResizeStart, { passive: false });
-    document.addEventListener('mousemove', onResizeMove);
-    document.addEventListener('touchmove', onResizeMove, { passive: false });
-    document.addEventListener('mouseup', onResizeEnd);
-    document.addEventListener('touchend', onResizeEnd);
-    document.addEventListener('touchcancel', onResizeEnd);
-
-    resizeHandle.addEventListener('mousedown', (e) => e.stopPropagation());
-    resizeHandle.addEventListener('touchstart', (e) => e.stopPropagation());
 })();
