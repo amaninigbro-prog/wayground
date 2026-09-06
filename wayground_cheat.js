@@ -1,4 +1,4 @@
-// Wayground Cheat - Main Script
+// Zulfa Cheat - Main Script
 // Host this file on GitHub raw, then use the bookmarklet to load it.
 
 (function(){
@@ -28,7 +28,7 @@
         backgroundColor: '#16213e', padding: '6px 12px', cursor: 'grab',
         userSelect: 'none', touchAction: 'none', borderBottom: '1px solid #0f3460'
     });
-    header.innerHTML = '<span style="font-weight:bold;font-size:14px;color:#e94560;">Wayground Cheat</span><div id="header-buttons" style="display:flex;align-items:center;"></div>';
+    header.innerHTML = '<span style="font-weight:bold;font-size:14px;color:#e94560;">Zulfa Cheat</span><div id="header-buttons" style="display:flex;align-items:center;"></div>';
     let headerButtons = header.querySelector('#header-buttons');
 
     let minimizeBtn = document.createElement('button');
@@ -49,7 +49,7 @@
     let tabBar = document.createElement('div');
     Object.assign(tabBar.style, { display: 'flex', backgroundColor: '#16213e', borderBottom: '2px solid #0f3460', padding: '0 5px' });
 
-    let tabs = ['Anti-Cheat', 'Login Spoof', 'Blatant', 'Console'];
+    let tabs = ['Anti-Cheat', 'Login Spoof', 'Blatant', 'View Answers', 'Console'];
     let tabButtons = {}, tabContents = {};
 
     tabs.forEach(tabName => {
@@ -110,6 +110,15 @@
         '<div id="bl-status" style="color:#888;font-size:11px;">Status: Ready</div>';
     tabContents['Blatant'] = blContent;
 
+    let vaContent = document.createElement('div');
+    Object.assign(vaContent.style, { padding: '10px', height: '100%', overflowY: 'auto', fontSize: '12px', display: 'none' });
+    vaContent.innerHTML = '<div style="color:#e94560;font-weight:bold;margin-bottom:8px;">View Answers by Room Code</div>' +
+        '<div style="margin-bottom:6px;"><label>Room / Game Code:</label><br><input type="text" id="va-roomcode" placeholder="e.g. ABC1234" style="width:100%;padding:5px;margin-top:4px;background:#0f3460;color:#eee;border:1px solid #444;border-radius:4px;font-size:12px;box-sizing:border-box;"></div>' +
+        '<div style="margin-bottom:6px;"><button id="va-fetch" style="padding:5px 12px;background:#e94560;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">Fetch Answers</button> <button id="va-clear" style="padding:5px 12px;background:#555;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">Clear</button></div>' +
+        '<div id="va-status" style="color:#888;font-size:11px;margin-bottom:8px;">Status: Enter a room code and click Fetch</div>' +
+        '<div id="va-results" style="background:#0a0a0a;padding:8px;border-radius:4px;font-family:monospace;font-size:11px;color:#0f0;white-space:pre-wrap;word-break:break-all;max-height:300px;overflow-y:auto;"></div>';
+    tabContents['View Answers'] = vaContent;
+
     let consoleContent = document.createElement('div');
     Object.assign(consoleContent.style, { padding: '5px', height: '100%', display: 'none', flexDirection: 'column' });
     let consoleLog = document.createElement('div');
@@ -117,7 +126,7 @@
     let consoleInput = document.createElement('input');
     Object.assign(consoleInput.style, { width: '100%', padding: '5px', backgroundColor: '#0f3460', color: '#eee', border: '1px solid #444', borderRadius: '4px', fontSize: '12px', fontFamily: 'monospace', boxSizing: 'border-box' });
     consoleInput.placeholder = 'Type command (e.g. help)...';
-    consoleLog.appendChild(document.createTextNode('Wayground Cheat Console\nType "help" for commands.\n'));
+    consoleLog.appendChild(document.createTextNode('Zulfa Cheat Console\nType "help" for commands.\n'));
     consoleContent.appendChild(consoleLog);
     consoleContent.appendChild(consoleInput);
     tabContents['Console'] = consoleContent;
@@ -136,7 +145,7 @@
 
     let restoreBtn = document.createElement('div');
     Object.assign(restoreBtn.style, { position: 'fixed', bottom: '20px', right: '20px', width: '40px', height: '40px', backgroundColor: 'rgba(233,69,96,0.25)', borderRadius: '50%', display: 'none', justifyContent: 'center', alignItems: 'center', color: 'rgba(255,255,255,0.8)', fontSize: '16px', cursor: 'pointer', zIndex: 1000000, userSelect: 'none', border: '1px solid rgba(255,255,255,0.2)', backdropFilter: 'blur(2px)', transition: 'background-color 0.2s' });
-    restoreBtn.textContent = 'W';
+    restoreBtn.textContent = 'Z';
     restoreBtn.addEventListener('mouseenter', () => restoreBtn.style.backgroundColor = 'rgba(233,69,96,0.5)');
     restoreBtn.addEventListener('mouseleave', () => restoreBtn.style.backgroundColor = 'rgba(233,69,96,0.25)');
     document.body.appendChild(restoreBtn);
@@ -361,7 +370,26 @@
         document.getElementById('bl-applyfake').addEventListener('click', () => {
             const n = document.getElementById('bl-fakeplayer')?.value?.trim();
             if (!n) return;
-            try { vr().player.playerId._rawValue = n; vr().player.playerId._value = n; consolePrint('[Blatant] Fake: ' + n); } catch (e) { consolePrint('[Blatant] Error: ' + e.message); }
+            try {
+                const v = vr();
+                if (v?.player?.playerId) { v.player.playerId._rawValue = n; v.player.playerId._value = n; }
+                if (v?.player?.name) { v.player.name._rawValue = n; v.player.name._value = n; }
+                if (v?.gameData?.players?._rawValue) {
+                    const pl = v.gameData.players._rawValue;
+                    const me = pl.find(p => p.id === pn());
+                    if (me) { me.id = n; me.name = n; }
+                }
+                const oxhr = window.XMLHttpRequest;
+                window.XMLHttpRequest = class extends oxhr {
+                    send(b) {
+                        if (b && typeof b === 'string') {
+                            try { const r = JSON.parse(b); if (r?.playerId === pn() || r?.player?.id === pn()) { r.playerId = n; if (r.player) r.player.id = n; b = JSON.stringify(r); } } catch {}
+                        }
+                        return super.send(b);
+                    }
+                };
+                consolePrint('[Blatant] Fake player applied: ' + n);
+            } catch (e) { consolePrint('[Blatant] Error: ' + e.message); }
         });
 
         document.getElementById('bl-start-cmd').addEventListener('click', async () => { try { await fetch("https://quizizz.com/_api/main/game/start", { credentials: "include", headers: { "Accept": "application/json", "Content-Type": "application/json" }, body: JSON.stringify({ roomHash: gr() }), method: "POST" }); consolePrint('[Blatant] Game started.'); } catch (e) {} });
@@ -382,6 +410,43 @@
     }
     tabButtons['Blatant'].addEventListener('click', () => initBlatant());
 
+    // === VIEW ANSWERS ===
+    async function fetchAnswersByCode(roomCode) {
+        const vaResults = document.getElementById('va-results');
+        const vaStatus = document.getElementById('va-status');
+        if (!roomCode) { vaStatus.textContent = 'Status: Enter a room code!'; vaStatus.style.color = '#e94560'; return; }
+        vaStatus.textContent = 'Status: Fetching...'; vaStatus.style.color = '#e94560';
+        vaResults.textContent = '';
+        try {
+            const joinResp = await fetch("https://game.quizizz.com/play-api/v5/join", { credentials: "include", headers: { "Accept": "application/json", "Content-Type": "application/json", "Credentials": "include", "experiment-name": "main_main" }, referrer: "https://quizizz.com/", body: JSON.stringify({ roomHash: roomCode, player: { id: "viewer_" + Math.random().toString(36).slice(2, 10), name: "Viewer", origin: "web", isGoogleAuth: false, avatarId: 0, startSource: "joinRoom", userAgent: navigator.userAgent, uid: "", expName: "main_main", expSlot: "16" }, powerupInternalVersion: "20", ip: "1.1.1.1", "user-agent": navigator.userAgent, socketId: "", authCookie: null, socketExperiment: "authRevamp" }), method: "POST", mode: "cors" });
+            const joinData = await joinResp.json();
+            if (!joinData?.success) { vaStatus.textContent = 'Status: Failed to join room. Check code.'; vaStatus.style.color = '#e94560'; return; }
+            const quizId = joinData?.game?.quizId || joinData?.quizId;
+            const quizMeta = await fetch(`https://quizizz.com/api/v2/admin/quiz/${quizId}?floorGrade=0&includeSource=true`, { credentials: "include", headers: { "Accept": "application/json" } });
+            const quizData = await quizMeta.json();
+            const questions = quizData?.quiz?.questions || [];
+            if (!questions.length) { vaStatus.textContent = 'Status: No questions found.'; vaStatus.style.color = '#e94560'; return; }
+            let output = '';
+            questions.forEach((q, i) => {
+                const qText = q?.questionText || q?.text || 'Unknown';
+                const qType = q?.type || 'MCQ';
+                let answer = 'N/A';
+                if (qType === 'MCQ' || qType === 'MSQ') {
+                    const opts = q?.options || [];
+                    const correct = opts.filter(o => o.isCorrect);
+                    answer = correct.map(o => o.text || o._id).join(', ') || 'N/A';
+                } else if (qType === 'BLANK' || qType === 'OPEN') {
+                    answer = q?.answer || q?.correctAnswers?.[0] || 'N/A';
+                }
+                output += `#${i + 1} [${qType}] ${qText}\n   -> ${answer}\n\n`;
+            });
+            vaResults.textContent = output;
+            vaStatus.textContent = `Status: Done! ${questions.length} questions found.`; vaStatus.style.color = '#4ecdc4';
+        } catch (e) { vaStatus.textContent = 'Status: Error - ' + e.message; vaStatus.style.color = '#e94560'; }
+    }
+    document.getElementById('va-fetch').addEventListener('click', () => fetchAnswersByCode(document.getElementById('va-roomcode')?.value?.trim()));
+    document.getElementById('va-clear').addEventListener('click', () => { document.getElementById('va-results').textContent = ''; document.getElementById('va-status').textContent = 'Status: Cleared'; document.getElementById('va-status').style.color = '#888'; });
+
     // === CONSOLE ===
     consoleInput.addEventListener('keydown', async e => {
         if (e.key !== 'Enter') return;
@@ -389,7 +454,7 @@
         consoleInput.value = '';
         consolePrint('> ' + v);
         const p = v.split(' '), c = p[0].toLowerCase(), a = p.slice(1);
-        if (c === 'help' || c === 'h') consolePrint('Commands: help, clear, autoanswer/aa, getplayers/gp, kick, finish/f, fakeplayer, start, pause, resume, sendbot, anticheat, spoof');
+        if (c === 'help' || c === 'h') consolePrint('Commands: help, clear, autoanswer/aa, getplayers/gp, kick, finish/f, fakeplayer, start, pause, resume, sendbot, anticheat, spoof, viewanswers/va <roomcode>');
         else if (c === 'clear' || c === 'clr') consoleLog.textContent = '';
         else if (c === 'autoanswer' || c === 'aa') document.getElementById('bl-start')?.click();
         else if (c === 'getplayers' || c === 'gp') { if (_blG.ap) { const pl = _blG.ap(); if (pl) pl.forEach(p => consolePrint(`#${p.rank || "?"} | ${p.id || "?"}`)); } else consolePrint('Init Blatant tab first.'); }
@@ -402,6 +467,7 @@
         else if (c === 'sendbot' && a[0]) { document.getElementById('bl-botcount').value = a[0]; document.getElementById('bl-sendbot')?.click(); }
         else if (c === 'anticheat') document.getElementById('ac-apply')?.click();
         else if (c === 'spoof' && a[0]) { document.getElementById('ls-playerid').value = a.join(' '); document.getElementById('ls-apply')?.click(); }
+        else if ((c === 'viewanswers' || c === 'va') && a[0]) { document.getElementById('va-roomcode').value = a.join(' '); document.getElementById('va-fetch')?.click(); }
         else consolePrint('Unknown. Type "help".');
     });
 
