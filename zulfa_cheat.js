@@ -30,11 +30,10 @@
     let body = document.createElement('div');
     Object.assign(body.style, { padding: '12px', overflowY: 'auto', flex: '1' });
     body.innerHTML =
-        '<div style="display:flex;gap:6px;margin-bottom:10px;">' +
-        '<button id="zc-find" style="flex:1;padding:10px;background:#e94560;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:bold;">🔍 Cari Semua Jawaban</button>' +
-        '<button id="zc-debug" style="padding:10px;background:#0f3460;color:#e94560;border:1px solid #e94560;border-radius:4px;cursor:pointer;font-size:13px;">🐛 Debug</button>' +
+        '<div style="margin-bottom:10px;">' +
+        '<button id="zc-find" style="width:100%;padding:10px;background:#e94560;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:bold;">🔍 Cari Semua Jawaban (API Teacher)</button>' +
         '</div>' +
-        '<div id="zc-status" style="color:#888;font-size:12px;margin-bottom:8px;">Klik tombol untuk mencari jawaban</div>' +
+        '<div id="zc-status" style="color:#888;font-size:12px;margin-bottom:8px;">Klik tombol untuk mengambil jawaban dari API</div>' +
         '<div id="zc-results" style="background:#0a0a0a;padding:10px;border-radius:4px;font-family:monospace;font-size:11px;color:#0f0;white-space:pre-wrap;word-break:break-all;max-height:60vh;overflow-y:auto;"></div>';
 
     floatDiv.appendChild(header);
@@ -55,125 +54,132 @@
     });
     document.addEventListener('mouseup', () => { isDragging = false; header.style.cursor = 'grab'; });
 
+    const _fetch = async (url, opts) => {
+        const r = await fetch(url, opts);
+        const t = await r.text();
+        try { return JSON.parse(t); } catch { return { _raw: t, _status: r.status }; }
+    };
+
     function getState() {
         try {
             const root = document.querySelector('#root');
-            const vueApp = root?.__vue_app__;
-            const pinia = vueApp?.config?.globalProperties?.$pinia;
-            return pinia?.state?._rawValue;
+            return root?.__vue_app__?.config?.globalProperties?.$pinia?.state?._rawValue;
         } catch { return null; }
     }
 
-    function debugData() {
+    async function findAnswers() {
         const status = document.getElementById('zc-status');
         const results = document.getElementById('zc-results');
-        status.textContent = 'Debugging...'; status.style.color = '#e94560';
+        status.textContent = 'Mengambil data dari API...'; status.style.color = '#e94560';
+        results.textContent = '';
 
         const state = getState();
         if (!state) { status.textContent = 'State tidak ditemukan'; status.style.color = '#e94560'; return; }
 
         const questions = state?.gameQuestions?.list?._rawValue;
-        if (!questions) { status.textContent = 'Tidak ada pertanyaan'; status.style.color = '#e94560'; return; }
+        const roomHash = state?.gameData?.roomHash?._rawValue;
+        const players = state?.gameData?.players?._rawValue;
+        const quizId = state?.gameData?.quizId?._rawValue || state?.gameData?.quizVersionId?._rawValue;
+
+        if (!questions) { status.textContent = 'Pertanyaan belum dimuat'; status.style.color = '#e94560'; return; }
 
         const keys = Object.keys(questions);
-        const firstQ = questions[keys[0]];
 
-        let debug = '=== STRUKTUR SOAL PERTAMA ===\n\n';
-        debug += 'Keys pada soal: ' + Object.keys(firstQ).join(', ') + '\n\n';
-        debug += 'Full JSON (soal 1):\n' + JSON.stringify(firstQ, null, 2) + '\n\n';
+        // Coba ambil data quiz dari API teacher
+        let teacherData = null;
+        const endpoints = [
+            quizId ? 'https://quizizz.com/api/v2/admin/quiz/' + quizId + '?includeSource=true' : null,
+            quizId ? 'https://quizizz.com/api/v2/quiz/' + quizId : null,
+            roomHash ? 'https://game.quizizz.com/play-api/v4/gameState/' + roomHash : null,
+        ].filter(Boolean);
 
-        if (firstQ.options) {
-            debug += '=== OPSI (soal 1) ===\n';
-            debug += 'Jumlah opsi: ' + firstQ.options.length + '\n';
-            firstQ.options.forEach((o, i) => {
-                debug += 'Opsi ' + i + ': ' + JSON.stringify(o) + '\n';
+        for (const ep of endpoints) {
+            try {
+                const d = await _fetch(ep, { credentials: 'include', headers: { 'Accept': 'application/json' } });
+                if (d && !d._raw) {
+                    teacherData = d;
+                    break;
+                }
+            } catch {}
+        }
+
+        // Jika quizId tidak ditemukan, cari dari URL atau state lain
+        if (!quizId) {
+            // Coba dari URL
+            const urlMatch = window.location.pathname.match(/\/quiz\/(\d+)/);
+            if (urlMatch) {
+                try {
+                    const d = await _fetch('https://quizizz.com/api/v2/admin/quiz/' + urlMatch[1] + '?includeSource=true', { credentials: 'include', headers: { 'Accept': 'application/json' } });
+                    if (d && !d._raw) teacherData = d;
+                } catch {}
+            }
+        }
+
+        // Bangun map jawaban dari teacher data
+        let answerMap = {};
+
+        if (teacherData) {
+            const tQuestions = teacherData?.quiz?.questions || teacherData?.questions || [];
+            tQuestions.forEach((tq, i) => {
+                const opts = tq?.options || [];
+                const correctIdx = [];
+                opts.forEach((o, j) => {
+                    if (o.isCorrect || o.correct) correctIdx.push(j);
+                });
+                if (correctIdx.length) {
+                    const qText = (tq?.questionText || tq?.text || '').replace(/<[^>]+>/g, '').trim();
+                    answerMap[qText.substring(0, 60)] = correctIdx;
+                    // Simpan juga dengan index
+                    answerMap['q' + i] = correctIdx;
+                }
             });
         }
 
-        debug += '\n=== SEMUA PROPERTI YANG MENGANDUNG "correct" / "answer" ===\n';
-        const str = JSON.stringify(firstQ);
-        const matches = str.match(/"[^"]*(?:correct|answer|right|benar)[^"]*"\s*:\s*[^,}]+/gi);
-        if (matches) matches.forEach(m => debug += m + '\n');
-        else debug += 'Tidak ditemukan properti serupa\n';
-
-        results.textContent = debug;
-        status.textContent = 'Debug selesai - lihat struktur di bawah';
-        status.style.color = '#4ecdc4';
-    }
-
-    function findAnswers() {
-        const status = document.getElementById('zc-status');
-        const results = document.getElementById('zc-results');
-        status.textContent = 'Mencari jawaban...'; status.style.color = '#e94560';
-        results.textContent = '';
-
-        const state = getState();
-        if (!state) {
-            status.textContent = 'State tidak ditemukan. Pastikan di halaman game.';
-            status.style.color = '#e94560';
-            return;
-        }
-
-        const questions = state?.gameQuestions?.list?._rawValue;
-        const roomHash = state?.gameData?.roomHash?._rawValue;
-        const players = state?.gameData?.players?._rawValue;
-
-        if (!questions) {
-            status.textContent = 'Pertanyaan belum dimuat. Mulai game dulu.';
-            status.style.color = '#e94560';
-            return;
-        }
-
-        const keys = Object.keys(questions);
+        // Output
         let output = '';
         if (roomHash) output += 'Room: ' + roomHash + '\n';
+        if (quizId) output += 'Quiz ID: ' + quizId + '\n';
         if (players) output += 'Pemain: ' + players.length + '\n';
         output += 'Total Soal: ' + keys.length + '\n';
+        output += 'Teacher API: ' + (teacherData ? 'OK' : 'Gagal') + '\n';
+        output += 'Jawaban ditemukan: ' + Object.keys(answerMap).length + '\n';
         output += '═'.repeat(40) + '\n\n';
 
         let found = 0;
 
         keys.forEach((k, i) => {
             const q = questions[k];
-            const qText = q?.questionText || q?.text || 'Soal #' + (i+1);
+            const qText = (q?.questionText || q?.text || '').replace(/<[^>]+>/g, '');
             const qType = q?.type || 'MCQ';
             const options = q?.options || [];
 
             let answer = '?';
+            let answerIdx = -1;
 
-            if (options.length) {
-                // Cari jawaban benar dengan berbagai kemungkinan nama properti
-                const correct = options.filter(o =>
-                    o.isCorrect === true ||
-                    o.correct === true ||
-                    o.is_correct === true ||
-                    o.right === true ||
-                    o.answer === true
-                );
-
-                if (correct.length) {
-                    answer = correct.map(o => o.text || o.value || o.label || o.id).join(', ');
-                    found++;
-                } else {
-                    // Coba cari dari index / correctIndex
-                    const ci = q.correctIndex ?? q.correctAnswer ?? q.answerIndex ?? q.answer;
-                    if (ci !== undefined && ci !== null) {
-                        if (typeof ci === 'number' && options[ci]) {
-                            answer = options[ci].text || options[ci].value || 'Index ' + ci;
-                            found++;
-                        } else {
-                            answer = 'correctIndex: ' + JSON.stringify(ci);
-                        }
-                    } else {
-                        // Fallback: dump opsi pertama
-                        answer = 'opsi[0]: ' + JSON.stringify(options[0]);
-                    }
-                }
-            } else {
-                answer = q?.answer || q?.correctAnswer || q?.correctAnswers?.[0] || 'Tidak ada opsi';
+            // Cari dari answerMap berdasarkan text
+            const mapKey = qText.substring(0, 60);
+            if (answerMap[mapKey]) {
+                answerIdx = answerMap[mapKey][0];
+            } else if (answerMap['q' + i]) {
+                answerIdx = answerMap['q' + i][0];
             }
 
-            output += '#' + (i+1) + ' [' + qType + '] ' + qText.replace(/<[^>]+>/g, '') + '\n';
+            if (answerIdx >= 0 && options[answerIdx]) {
+                answer = options[answerIdx].text || options[answerIdx].value || 'Index ' + answerIdx;
+                found++;
+            } else {
+                // Fallback: cari di local data
+                const ci = q.correctIndex ?? q.correctAnswer ?? q.answerIndex;
+                if (ci !== undefined && ci !== null && ci >= 0 && options[ci]) {
+                    answer = options[ci].text || 'Index ' + ci;
+                    found++;
+                } else {
+                    // List semua opsi
+                    answer = options.map((o, j) => j + ': ' + (o.text || o.value || '?')).join(' | ');
+                }
+            }
+
+            output += '#' + (i+1) + ' [' + qType + '] ' + qText.substring(0, 80) + (qText.length > 80 ? '...' : '') + '\n';
             output += '   ✅ ' + answer + '\n\n';
         });
 
@@ -181,10 +187,9 @@
         output += 'Ditemukan: ' + found + '/' + keys.length + '\n';
 
         results.textContent = output;
-        status.textContent = 'Selesai! ' + keys.length + ' soal diproses.';
-        status.style.color = found > 0 ? '#4ecdc4' : '#e94560';
+        status.textContent = 'Selesai! ' + found + '/' + keys.length + ' jawaban ditemukan.';
+        status.style.color = found === keys.length ? '#4ecdc4' : '#e94560';
     }
 
     document.getElementById('zc-find').addEventListener('click', findAnswers);
-    document.getElementById('zc-debug').addEventListener('click', debugData);
 })();
