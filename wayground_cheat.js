@@ -417,15 +417,92 @@
         if (!roomCode) { vaStatus.textContent = 'Status: Enter a room code!'; vaStatus.style.color = '#e94560'; return; }
         vaStatus.textContent = 'Status: Fetching...'; vaStatus.style.color = '#e94560';
         vaResults.textContent = '';
+
+        const _fetchJSON = async (url, opts) => {
+            const r = await fetch(url, opts);
+            const t = await r.text();
+            try { return JSON.parse(t); } catch { return { _raw: t, _status: r.status }; }
+        };
+
         try {
-            const joinResp = await fetch("https://game.quizizz.com/play-api/v5/join", { credentials: "include", headers: { "Accept": "application/json", "Content-Type": "application/json", "Credentials": "include", "experiment-name": "main_main" }, referrer: "https://quizizz.com/", body: JSON.stringify({ roomHash: roomCode, player: { id: "viewer_" + Math.random().toString(36).slice(2, 10), name: "Viewer", origin: "web", isGoogleAuth: false, avatarId: 0, startSource: "joinRoom", userAgent: navigator.userAgent, uid: "", expName: "main_main", expSlot: "16" }, powerupInternalVersion: "20", ip: "1.1.1.1", "user-agent": navigator.userAgent, socketId: "", authCookie: null, socketExperiment: "authRevamp" }), method: "POST", mode: "cors" });
-            const joinData = await joinResp.json();
-            if (!joinData?.success) { vaStatus.textContent = 'Status: Failed to join room. Check code.'; vaStatus.style.color = '#e94560'; return; }
-            const quizId = joinData?.game?.quizId || joinData?.quizId;
-            const quizMeta = await fetch(`https://quizizz.com/api/v2/admin/quiz/${quizId}?floorGrade=0&includeSource=true`, { credentials: "include", headers: { "Accept": "application/json" } });
-            const quizData = await quizMeta.json();
-            const questions = quizData?.quiz?.questions || [];
-            if (!questions.length) { vaStatus.textContent = 'Status: No questions found.'; vaStatus.style.color = '#e94560'; return; }
+            let quizId = null;
+            let questions = [];
+
+            const v = (() => { try { return document.querySelector("#root")?.__vue_app__?.config?.globalProperties?.$pinia?.state?._rawValue; } catch { return null; } })();
+            const currentRoom = v?.gameData?.roomHash?._rawValue;
+
+            if (currentRoom && currentRoom === roomCode) {
+                const gq = v?.gameQuestions?.list?._rawValue;
+                if (gq) {
+                    const keys = Object.keys(gq);
+                    keys.forEach(k => { if (gq[k]) questions.push(gq[k]); });
+                }
+            }
+
+            if (!questions.length) {
+                const joinData = await _fetchJSON("https://game.quizizz.com/play-api/v5/join", {
+                    credentials: "include",
+                    headers: { "Accept": "application/json", "Content-Type": "application/json", "Credentials": "include", "experiment-name": "main_main" },
+                    referrer: "https://quizizz.com/",
+                    body: JSON.stringify({
+                        roomHash: roomCode,
+                        player: { id: "viewer_" + Math.random().toString(36).slice(2, 10), name: "Viewer", origin: "web", isGoogleAuth: false, avatarId: 0, startSource: "joinRoom", userAgent: navigator.userAgent, uid: "", expName: "main_main", expSlot: "16" },
+                        powerupInternalVersion: "20", ip: "1.1.1.1", "user-agent": navigator.userAgent, socketId: "", authCookie: null, socketExperiment: "authRevamp"
+                    }),
+                    method: "POST", mode: "cors"
+                });
+
+                if (joinData?._raw) {
+                    vaStatus.textContent = 'Status: API error (HTTP ' + joinData._status + '). Try being on quizizz.com or game may have ended.';
+                    vaStatus.style.color = '#e94560';
+                    vaResults.textContent = 'Raw response:\n' + (joinData._raw || 'empty').substring(0, 500);
+                    return;
+                }
+
+                quizId = joinData?.game?.quizId || joinData?.quizId || joinData?.data?.quizId;
+                const gameQuestions = joinData?.game?.questions || joinData?.data?.questions;
+                if (gameQuestions && gameQuestions.length) {
+                    questions = Array.isArray(gameQuestions) ? gameQuestions : Object.values(gameQuestions);
+                }
+
+                if (!quizId && !questions.length) {
+                    const attemptData = await _fetchJSON("https://game.quizizz.com/play-api/v4/gameState/" + roomCode, {
+                        credentials: "include",
+                        headers: { "Accept": "application/json", "Content-Type": "application/json" },
+                        referrer: "https://quizizz.com/"
+                    });
+                    if (!attemptData?._raw) {
+                        quizId = attemptData?.quizId || attemptData?.game?.quizId;
+                        const gs = attemptData?.questions || attemptData?.game?.questions;
+                        if (gs && gs.length) questions = Array.isArray(gs) ? gs : Object.values(gs);
+                    }
+                }
+            }
+
+            if (!questions.length && quizId) {
+                const endpoints = [
+                    "https://quizizz.com/api/v2/admin/quiz/" + quizId + "?floorGrade=0&includeSource=true",
+                    "https://quizizz.com/api/v2/quiz/" + quizId,
+                    "https://quizizz.com/api/v1/quiz/" + quizId
+                ];
+                for (const ep of endpoints) {
+                    try {
+                        const qd = await _fetchJSON(ep, { credentials: "include", headers: { "Accept": "application/json" } });
+                        if (!qd?._raw) {
+                            const qs = qd?.quiz?.questions || qd?.questions || [];
+                            if (qs.length) { questions = qs; break; }
+                        }
+                    } catch {}
+                }
+            }
+
+            if (!questions.length) {
+                vaStatus.textContent = 'Status: No questions found. Room may have ended or code is invalid.';
+                vaStatus.style.color = '#e94560';
+                vaResults.textContent = 'Debug info:\nquizId: ' + quizId + '\njoinData keys: ' + (joinData ? Object.keys(joinData).join(', ') : 'N/A');
+                return;
+            }
+
             let output = '';
             questions.forEach((q, i) => {
                 const qText = q?.questionText || q?.text || 'Unknown';
@@ -438,10 +515,10 @@
                 } else if (qType === 'BLANK' || qType === 'OPEN') {
                     answer = q?.answer || q?.correctAnswers?.[0] || 'N/A';
                 }
-                output += `#${i + 1} [${qType}] ${qText}\n   -> ${answer}\n\n`;
+                output += '#' + (i + 1) + ' [' + qType + '] ' + qText + '\n   -> ' + answer + '\n\n';
             });
             vaResults.textContent = output;
-            vaStatus.textContent = `Status: Done! ${questions.length} questions found.`; vaStatus.style.color = '#4ecdc4';
+            vaStatus.textContent = 'Status: Done! ' + questions.length + ' questions found.'; vaStatus.style.color = '#4ecdc4';
         } catch (e) { vaStatus.textContent = 'Status: Error - ' + e.message; vaStatus.style.color = '#e94560'; }
     }
     document.getElementById('va-fetch').addEventListener('click', () => fetchAnswersByCode(document.getElementById('va-roomcode')?.value?.trim()));
